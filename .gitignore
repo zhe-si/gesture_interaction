@@ -1,0 +1,21 @@
+# files types to exculde
+
+.idea/
+
+__pycache__/
+
+datasets/
+
+log/
+
+model/
+
+output/
+
+pretrained_models/
+
+
+*.pyc
+
+*.checkPoint
+
