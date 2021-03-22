@@ -6,7 +6,7 @@ Pytorch implementation of the article [Motion fused frames: Data level fusion st
 - Update: Code is updated for Pytorch 1.5.0 and CUDA 10.2
 ```
 
-<p align="center"><img src="https://github.com/okankop/MFF-pytorch/blob/master/images/motion_fused_frames.jpg" align="middle" width="500" title="Motion Fused Frames" /></p>
+<p align="center"><img src="./images/motion_fused_frames.jpg" align="middle" width="500" title="Motion Fused Frames" /></p>
 
 
 ### Installation
