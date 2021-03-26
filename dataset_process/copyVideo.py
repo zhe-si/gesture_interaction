@@ -4,19 +4,19 @@ import shutil
 
 
 def main():
-    root_path = ""
-    from_path1 = os.path.join(root_path, "")
-    from_path2 = os.path.join(root_path, "")
-    from_path3 = os.path.join(root_path, "")
-    from_path4 = os.path.join(root_path, "")
-    to_path = os.path.join(root_path, "")
+    root_path = "E:/sourse/python/MFF-GestureRecognition/MFF-pytorch/datasets/click_keyboard"
+    from_path1 = os.path.join(root_path, "video/lq电脑")
+    from_path2 = os.path.join(root_path, "video/lq手机")
+    from_path3 = os.path.join(root_path, "video/lzh电脑")
+    from_path4 = os.path.join(root_path, "video/lzh手机")
+    to_path = os.path.join(root_path, "datasets")
     make_sure_path_exits(to_path)
 
     video_list1 = get_file_list(from_path1)
     video_list2 = get_file_list(from_path2)
     video_list3 = get_file_list(from_path3)
     video_list4 = get_file_list(from_path4)
-    for i in range(10 * 25):
+    for i in range(3, 3 * 25 - 1):
         left_right = "left"
         if i >= 5 * 25:
             left_right = "right"
@@ -25,8 +25,12 @@ def main():
         dir_name = left_right + "-" + str(finger) + "-" + str(point)
         dir_name = os.path.join(to_path, dir_name)
         make_sure_path_exits(dir_name)
+        if i == 10:
+            n = 1
+        else:
+            n = 2
         move_n_file(from_path1, dir_name, video_list1, 2)
-        move_n_file(from_path2, dir_name, video_list2, 2)
+        move_n_file(from_path2, dir_name, video_list2, n)
         move_n_file(from_path3, dir_name, video_list3, 2)
         move_n_file(from_path4, dir_name, video_list4, 2)
     pass
