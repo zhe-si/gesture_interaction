@@ -6,18 +6,21 @@ import os
 import cv2
 
 # 键盘按键：标签
-sign_map = {"1": "1", "2": "2"}
+sign_map = {"1": "ClickDown", "2": "ClickUp", "3": "Translation", "4": "ZoomOut",
+            "5": "ZoomIn", "6": "Catch", "7": "Clockwise", "8": "Anticlockwise"}
 
 
 def main():
     # 保存路径
-    to_path = "E:/to"
+    to_path = "D:/document/服务外包大赛/视频手势/dealWithVideo"
     # 单个视频路径
-    video_path = "E:/WIN_20210322_19_46_16_Pro.mp4"
-    # 视频文件夹路径
-    videos_dir_path = "E:/k"
+    # video_path = "E:/WIN_20210322_19_46_16_Pro.mp4"
 
-    show_interval = 0.3
+    # 视频文件夹路径
+    videos_dir_path = "D:/document/服务外包大赛/视频手势/电脑"
+
+    # 显示频率，空格跳过的时间/s，可自由设置
+    show_interval = 0.1
     fourcc = cv2.VideoWriter_fourcc('D', 'I', 'V', 'X')  # mp4编节码器
     video_type = ".mp4"
 
@@ -47,6 +50,8 @@ def cut_video(fourcc, show_interval, to_path, video_path, video_type):
     fps = int(cap.get(5))  # 获得视频帧速率
     time = frame_num / fps
     show_frame = int(frame_num / (time / show_interval))
+    if show_frame < 1:
+        show_frame = 1
     width, height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     i = 0
@@ -58,7 +63,7 @@ def cut_video(fourcc, show_interval, to_path, video_path, video_type):
         if success:
             i += 1
             # 每show_frame显示一次图片并判断是否
-            if i % show_frame == 1:
+            if i % show_frame == 1 or show_frame == 1:
                 cv2.imshow("show", frame)
                 while True:
                     key = chr(cv2.waitKey(0))
