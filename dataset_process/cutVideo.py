@@ -133,7 +133,7 @@ def cut_video(fourcc, show_interval, to_path, video_path, video_type):
             else:
                 if video_writer is not None:
                     video_writer.write(frame)
-            print("\r> {}%".format(i / frame_num * 100), end="")
+            print("\r> {}%  ".format(i / frame_num * 100), end="")
         else:
             print('end video {}'.format(video_path))
             break
