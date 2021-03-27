@@ -13,12 +13,15 @@ sign_map = {"1": "Click Down", "2": "Click Up", "3": "Swipe",
 
 time_format = "%Y-%m-%d-%H-%M-%S"
 
+# 是否使用完成文件缓存（开启后一旦标记完成下次读多个视频时就不会再读取）
+use_finish_cache = False
+
 
 def main():
     # 保存路径
-    to_path = "E:/1/2"
+    to_path = "E:/2"
     # 视频路径(自动判断是单个视频文件还是一个文件夹)
-    video_path = "E:/WIN_20210322_19_48_45_Pro.mp4"
+    video_path = "E:/1"
 
     # 显示频率，空格跳过的时间/s，可自由设置
     show_interval = 0.1
@@ -40,13 +43,27 @@ def cut_video_auto(fourcc, show_interval, to_path, video_path, video_type):
 
 # 剪切多个文件，输入一个原视频文件夹
 def cut_videos(fourcc, show_interval, to_path, videos_dir_path, video_type):
+    finish_file_cache_name = ".finish"
+    finish_files = []
+    finish_file_cache_path = os.path.join(to_path, finish_file_cache_name)
+    if use_finish_cache:
+        if os.path.exists(finish_file_cache_path):
+            with open(finish_file_cache_path, "r") as file:
+                finish_files.extend(file.readlines())
+            for i in range(len(finish_files)):
+                finish_files[i] = finish_files[i].replace("\n", "")
+
     videos_path = os.listdir(videos_dir_path)
-    for video_path in videos_path:
-        path = os.path.join(videos_dir_path, video_path)
-        if os.path.isfile(path):
-            print("start cut video {}".format(video_path))
-            cut_video(fourcc, show_interval, to_path, path, video_type)
-            print("end cut video {}".format(video_path))
+    mack_sure_dir_exit(to_path)
+    with open(finish_file_cache_path, "a") as cache_file:
+        for video_path in videos_path:
+            path = os.path.join(videos_dir_path, video_path)
+            if os.path.isfile(path) and path not in finish_files:
+                print("start cut video {}".format(video_path))
+                cut_video(fourcc, show_interval, to_path, path, video_type)
+                cache_file.write(path + "\n")
+                cache_file.flush()
+                print("end cut video {}".format(video_path))
 
 
 # 剪切单个视频
