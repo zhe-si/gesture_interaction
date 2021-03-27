@@ -5,7 +5,7 @@ import os
 import time
 
 import cv2
-
+# WIN_20210323_20_25_01_Pro.mp4
 # 键盘按键：标签
 sign_map = {"1": "Click Down", "2": "Click Up", "3": "Swipe",
             "4": "Zooming Out With Two Hands", "5": "Zooming In With Two Hands", "6": "Catch",
@@ -14,17 +14,17 @@ sign_map = {"1": "Click Down", "2": "Click Up", "3": "Swipe",
 time_format = "%Y-%m-%d-%H-%M-%S"
 
 # 是否使用完成文件缓存（开启后一旦标记完成下次读多个视频时就不会再读取）
-use_finish_cache = False
+use_finish_cache = True
 
 
 def main():
     # 保存路径
-    to_path = "E:/2"
+    to_path = r"F:\我的资源\数据集\手势识别数据集\video\根据标签切割"
     # 视频路径(自动判断是单个视频文件还是一个文件夹)
-    video_path = "E:/1"
+    video_path = r"F:\我的资源\数据集\手势识别数据集\video\待分类\电脑数据集"
 
     # 显示频率，空格跳过的时间/s，可自由设置
-    show_interval = 0.1
+    show_interval = 0.12
     fourcc = cv2.VideoWriter_fourcc('D', 'I', 'V', 'X')  # mp4编节码器
     video_type = ".mp4"
 
@@ -79,7 +79,6 @@ def cut_video(fourcc, show_interval, to_path, video_path, video_type):
     width, height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     i = 0
-    video_index = 1
     sign_state = (" ", " ")
     video_writer = None
     while True:
@@ -113,7 +112,6 @@ def cut_video(fourcc, show_interval, to_path, video_path, video_type):
                                                 fourcc, fps, (width, height))
                             video_writer.write(frame)
                             sign_state = ("s", key2)
-                            video_index += 1
                             print("start sign {}".format(sign_map[key2]))
                         continue
                     # 结束某标签剪切
@@ -135,6 +133,7 @@ def cut_video(fourcc, show_interval, to_path, video_path, video_type):
             else:
                 if video_writer is not None:
                     video_writer.write(frame)
+            print("\r> {}%".format(i / frame_num * 100), end="")
         else:
             print('end video {}'.format(video_path))
             break
