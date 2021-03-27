@@ -7,8 +7,9 @@ import time
 import cv2
 
 # 键盘按键：标签
-sign_map = {"1": "ClickDown", "2": "ClickUp", "3": "Translation", "4": "ZoomOut",
-            "5": "ZoomIn", "6": "Catch", "7": "Clockwise", "8": "Anticlockwise"}
+sign_map = {"1": "Click Down", "2": "Click Up", "3": "Swipe",
+            "4": "Zooming Out With Two Hands", "5": "Zooming In With Two Hands", "6": "Catch",
+            "7": "Turn With Two Hands Clockwise", "8": "Turn With Two Hands Counterclockwise"}
 
 time_format = "%Y-%m-%d-%H-%M-%S"
 
