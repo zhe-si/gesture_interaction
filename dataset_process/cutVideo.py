@@ -2,6 +2,7 @@
 # 可将完整视频切成单个动作一个视频，并放到对应标签文件夹
 # 空格继续，s + 标签名 开始某段视频，e + 标签名 结束某段视频，并将其保存到to_path的标签名文件夹里，开始和结束的标签名必须对应
 import os
+import time
 
 import cv2
 
@@ -9,26 +10,31 @@ import cv2
 sign_map = {"1": "ClickDown", "2": "ClickUp", "3": "Translation", "4": "ZoomOut",
             "5": "ZoomIn", "6": "Catch", "7": "Clockwise", "8": "Anticlockwise"}
 
+time_format = "%Y-%m-%d-%H-%M-%S"
+
 
 def main():
     # 保存路径
-    to_path = "D:/document/服务外包大赛/视频手势/dealWithVideo"
-    # 单个视频路径
-    # video_path = "E:/WIN_20210322_19_46_16_Pro.mp4"
-
-    # 视频文件夹路径
-    videos_dir_path = "D:/document/服务外包大赛/视频手势/电脑"
+    to_path = "E:/1/2"
+    # 视频路径(自动判断是单个视频文件还是一个文件夹)
+    video_path = "E:/WIN_20210322_19_48_45_Pro.mp4"
 
     # 显示频率，空格跳过的时间/s，可自由设置
     show_interval = 0.1
     fourcc = cv2.VideoWriter_fourcc('D', 'I', 'V', 'X')  # mp4编节码器
     video_type = ".mp4"
 
-    # 剪切单个视频
-    # cut_video(fourcc, show_interval, to_path, video_path, video_type)
-    # 剪切多个视频（videos_dir_path是视频文件夹路径）
-    cut_videos(fourcc, show_interval, to_path, videos_dir_path, video_type)
+    cut_video_auto(fourcc, show_interval, to_path, video_path, video_type)
     pass
+
+
+def cut_video_auto(fourcc, show_interval, to_path, video_path, video_type):
+    if os.path.isdir(video_path):
+        cut_videos(fourcc, show_interval, to_path, video_path, video_type)
+    elif os.path.isfile(video_path):
+        cut_video(fourcc, show_interval, to_path, video_path, video_type)
+    else:
+        print("this is not a true path: {}".format(video_path))
 
 
 # 剪切多个文件，输入一个原视频文件夹
@@ -48,8 +54,8 @@ def cut_video(fourcc, show_interval, to_path, video_path, video_type):
 
     frame_num = int(cap.get(7))
     fps = int(cap.get(5))  # 获得视频帧速率
-    time = frame_num / fps
-    show_frame = int(frame_num / (time / show_interval))
+    time_l = frame_num / fps
+    show_frame = int(frame_num / (time_l / show_interval))
     if show_frame < 1:
         show_frame = 1
     width, height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -83,8 +89,9 @@ def cut_video(fourcc, show_interval, to_path, video_path, video_type):
                         else:
                             to_video_path = os.path.join(to_path, sign_map[key2])
                             mack_sure_dir_exit(to_video_path)
+                            file_name = time.strftime(time_format, time.localtime(time.time()))
                             video_writer = \
-                                cv2.VideoWriter(os.path.join(to_video_path, str(video_index) + video_type),
+                                cv2.VideoWriter(os.path.join(to_video_path, file_name + video_type),
                                                 fourcc, fps, (width, height))
                             video_writer.write(frame)
                             sign_state = ("s", key2)
