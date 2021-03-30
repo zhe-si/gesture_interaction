@@ -45,7 +45,7 @@ def move_n_file(from_path, to_path, video_list, n: int):
 
 def make_sure_path_exits(dir_name):
     if not os.path.exists(dir_name):
-        os.mkdir(dir_name)
+        os.makedirs(dir_name)
 
 
 def get_file_list(path: str):
