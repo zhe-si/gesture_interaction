@@ -5,10 +5,11 @@ import os
 from copyVideo import make_sure_path_exits
 import cv2
 
-video_root_path = "E:/"
-to_path = "E:/to"
-save_video_path = "rgb"
+video_root_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\video\根据标签切割"
+# 要求to_path路径为英文路径
+to_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\video\test"
 
+save_video_path = "rgb"
 data_label_file_name = "all.csv"
 
 video_min_frame = 8
@@ -21,10 +22,12 @@ def main():
 
 def deal_all_label():
     label_list = os.listdir(video_root_path)
+    label_list.remove(".finish")
     data_id = 1
     for label in label_list:
         label_path = os.path.join(video_root_path, label)
         video_list = os.listdir(label_path)
+        video_id = 0
         make_sure_path_exits(to_path)
         with open(os.path.join(to_path, data_label_file_name), "a") as file:
             for video_name in video_list:
@@ -32,10 +35,13 @@ def deal_all_label():
                 deal_video(video_path, file, data_id, label)
                 data_id += 1
 
+                print("\r" + label + " > {} %".format(video_id / len(video_list)), end="")
+                video_id += 1
+
 
 def deal_video(video_path: str, file, data_id: int, label: str):
     cap = cv2.VideoCapture(video_path)
-    frame_num = cap.get(7)
+    frame_num = int(cap.get(7))
     if frame_num < video_min_frame:
         return False
     save_path = os.path.join(to_path, save_video_path, str(data_id))
@@ -43,15 +49,19 @@ def deal_video(video_path: str, file, data_id: int, label: str):
     cut_frame_num = frame_num // 25
     cut_frame_num = cut_frame_num if cut_frame_num != 0 else 1
     now_num = 1
+    step = 0
     while True:
         success, frame = cap.read()
         if success:
-            if now_num % cut_frame_num == 0:
-                cv2.imwrite(os.path.join(save_path, "%05d.jpg" % now_num), cv2.resize(frame, video_sta_shape))
+            if step % cut_frame_num == 0:
+                pic_path = os.path.join(save_path, "%05d.jpg" % now_num).replace("\\", "/")
+                if not cv2.imwrite(pic_path, cv2.resize(frame, video_sta_shape)):
+                    print("pic: {} > save failure".format(pic_path))
                 now_num += 1
+            step += 1
         else:
             break
-    file.write("{};{}".format(data_id, label))
+    file.write("{};{}\n".format(data_id, label))
     file.flush()
 
 
