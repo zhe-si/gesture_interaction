@@ -17,7 +17,14 @@ video_sta_shape = (176, 100)
 
 
 def main():
+    remove_data_label_file()
     deal_all_label()
+
+
+def remove_data_label_file():
+    data_label_file_path = os.path.join(to_path, data_label_file_name)
+    if os.path.exists(data_label_file_path):
+        os.remove(data_label_file_path)
 
 
 def deal_all_label():
