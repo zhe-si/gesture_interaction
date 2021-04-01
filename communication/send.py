@@ -8,6 +8,10 @@ from communication.receive import Receiver
 
 
 class Sender:
+    """
+    异步数据发送（添加时间戳"send_time"）
+    发送方法：send
+    """
 
     def __init__(self, tar_host, tar_port):
         self.tar_host = tar_host
@@ -42,6 +46,8 @@ class Sender:
 
 
 if __name__ == '__main__':
-    sender = Sender(Receiver.HOST, Receiver.PORT)
+    sender = Sender("localhost", Receiver.PORT)
     k = {1: 1, 2: "2"}
-    sender.send(k)
+    while True:
+        sender.send(k)
+        time.sleep(0.1)
