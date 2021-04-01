@@ -6,13 +6,13 @@ __pycache__/
 
 datasets/
 
-log/
+gesture_recognition/log/
 
-model/
+gesture_recognition/model/
 
-output/
+gesture_recognition/output/
 
-pretrained_models/
+gesture_recognition/pretrained_models/
 
 
 *.pyc
