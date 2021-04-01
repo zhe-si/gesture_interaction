@@ -22,6 +22,7 @@ class Sender:
         self.__make_sure_connect()
 
     def send(self, msg_dict: dict):
+        """发送字典格式数据"""
         msg_package = self.__make_msg_package(msg_dict)
         thread = Thread(target=self._send, args=(msg_package,))
         thread.start()
