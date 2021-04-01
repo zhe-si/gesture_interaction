@@ -2,10 +2,11 @@
 # 可将完整视频切成单个动作一个视频，并放到对应标签文件夹
 # 空格继续，s + 标签名 开始某段视频，e + 标签名 结束某段视频，并将其保存到to_path的标签名文件夹里，开始和结束的标签名必须对应
 import os
+import random
 import time
 
 import cv2
-# WIN_20210323_20_25_01_Pro.mp4
+
 # 键盘按键：标签
 sign_map = {"1": "Click Down", "2": "Click Up", "3": "Swipe",
             "4": "Zooming Out With Two Hands", "5": "Zooming In With Two Hands", "6": "Catch",
@@ -19,9 +20,9 @@ use_finish_cache = True
 
 def main():
     # 保存路径
-    to_path = r"F:\我的资源\数据集\手势识别数据集\video\根据标签切割"
+    to_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\拷贝\video\根据标签切割"
     # 视频路径(自动判断是单个视频文件还是一个文件夹)
-    video_path = r"F:\我的资源\数据集\手势识别数据集\video\待分类\电脑数据集"
+    video_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\拷贝\video\待分类\lq手机\VID_20210323_204812.mp4"
 
     # 显示频率，空格跳过的时间/s，可自由设置
     show_interval = 0.12
@@ -54,6 +55,7 @@ def cut_videos(fourcc, show_interval, to_path, videos_dir_path, video_type):
                 finish_files[i] = finish_files[i].replace("\n", "")
 
     videos_path = os.listdir(videos_dir_path)
+    random.shuffle(videos_path)
     mack_sure_dir_exit(to_path)
     with open(finish_file_cache_path, "a") as cache_file:
         for video_path in videos_path:
@@ -87,7 +89,10 @@ def cut_video(fourcc, show_interval, to_path, video_path, video_type):
             i += 1
             # 每show_frame显示一次图片并判断是否
             if i % show_frame == 1 or show_frame == 1:
-                cv2.imshow("show", frame)
+                if frame.shape[0] > 1800 or frame.shape[1] > 1800:
+                    cv2.imshow("show", cv2.resize(frame, (frame.shape[0] // 2, int(frame.shape[1] / 1.5))))
+                else:
+                    cv2.imshow("show", frame)
                 while True:
                     key = chr(cv2.waitKey(0))
                     # 跳过

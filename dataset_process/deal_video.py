@@ -2,8 +2,8 @@
 # 1. 过滤过于小的视频
 # 2. 把视频切成20张左右图片，放到对应文件夹，在csv中保存对应文件夹名和标签 (格式：34870;Drumming Fingers)
 import os
-from copyVideo import make_sure_path_exits
 import cv2
+from copyVideo import make_sure_path_exits
 
 video_root_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\video\根据标签切割"
 # 要求to_path路径为英文路径
