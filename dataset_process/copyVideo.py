@@ -1,6 +1,7 @@
 # 键盘手势视频，从n个文件夹拷贝中按照时间顺序每个拷贝m个视频到对应文件夹
 import os
 import shutil
+from time import time
 
 
 def main():
@@ -15,8 +16,11 @@ def main():
     video_list1 = get_file_list(from_path1)
     video_list2 = get_file_list(from_path2)
     video_list3 = get_file_list(from_path3)
+    video_list3.pop()
     video_list4 = get_file_list(from_path4)
-    for i in range(3, 3 * 25 - 1):
+    video_list4.sort()
+    for i in range(3 * 25, 5 * 25 - 5):
+    # for i in range(3, 3 * 25 - 1):
         left_right = "left"
         if i >= 5 * 25:
             left_right = "right"
@@ -25,7 +29,7 @@ def main():
         dir_name = left_right + "-" + str(finger) + "-" + str(point)
         dir_name = os.path.join(to_path, dir_name)
         make_sure_path_exits(dir_name)
-        if i == 10:
+        if i == 3 * 25 + 13 - 1 or i == 9:
             n = 1
         else:
             n = 2
@@ -40,7 +44,11 @@ def main():
 def move_n_file(from_path, to_path, video_list, n: int):
     for i in range(n):
         file_name = video_list.pop(0)
-        shutil.move(os.path.join(from_path, file_name), os.path.join(to_path, file_name))
+        if file_name in os.listdir(to_path):
+            save_file = os.path.join(to_path, str(int(time())) + "_" + file_name)
+        else:
+            save_file = os.path.join(to_path, file_name)
+        shutil.move(os.path.join(from_path, file_name), save_file)
 
 
 def make_sure_path_exits(dir_name):

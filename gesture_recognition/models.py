@@ -219,17 +219,20 @@ class TSN(nn.Module):
              'name': "BN scale/shift"},
         ]
 
-    def forward(self, input):
+    def forward(self, input_data):
+        """
+        *input_data* 若不考虑batch size，实际输入为一个动作完成取self.num_segments次样，每次样为self.new_length帧的数据（l - 1组光流+1组rgb）。相当于每次输入完整动作的数据，输出手势分类。
+        """
         sample_len = (3 if self.modality == "RGB" else 2) * self.new_length
 
         if self.modality == 'RGBDiff':
             sample_len = 3 * self.new_length
-            input = self._get_diff(input)
+            input_data = self._get_diff(input_data)
 
         if self.modality == 'RGBFlow':
             sample_len = 3 + 2 * self.new_length
 
-        base_out = self.base_model(input.view((-1, sample_len) + input.size()[-2:]))
+        base_out = self.base_model(input_data.view((-1, sample_len) + input_data.size()[-2:]))
 
         if self.dropout > 0:
             base_out = self.new_fc(base_out)
