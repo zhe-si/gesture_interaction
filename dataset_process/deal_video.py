@@ -39,14 +39,14 @@ def deal_all_label():
         with open(os.path.join(to_path, data_label_file_name), "a") as file:
             for video_name in video_list:
                 video_path = os.path.join(label_path, video_name)
-                deal_video(video_path, file, data_id, label)
+                deal_video(video_path, file, data_id, label, to_path)
                 data_id += 1
 
                 print("\r" + label + " > {} %".format(video_id / len(video_list)), end="")
                 video_id += 1
 
 
-def deal_video(video_path: str, file, data_id: int, label: str):
+def deal_video(video_path: str, sign_file, data_id: int, label: str, to_path: str):
     cap = cv2.VideoCapture(video_path)
     frame_num = int(cap.get(7))
     if frame_num < video_min_frame:
@@ -68,8 +68,8 @@ def deal_video(video_path: str, file, data_id: int, label: str):
             step += 1
         else:
             break
-    file.write("{};{}\n".format(data_id, label))
-    file.flush()
+    sign_file.write("{};{}\n".format(data_id, label))
+    sign_file.flush()
 
 
 if __name__ == '__main__':
