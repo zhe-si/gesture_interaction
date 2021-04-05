@@ -5,9 +5,9 @@ import os
 import cv2
 from copyVideo import make_sure_path_exits
 
-video_root_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\video\根据标签切割"
+video_root_path = r"F:\My_Resources\datasets\click_keyboard\video\updown"
 # 要求to_path路径为英文路径
-to_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\video\test"
+to_path = r"F:\My_Resources\datasets\click_keyboard\updown_j"
 
 save_video_path = "rgb"
 data_label_file_name = "all.csv"
@@ -29,7 +29,8 @@ def remove_data_label_file():
 
 def deal_all_label():
     label_list = os.listdir(video_root_path)
-    label_list.remove(".finish")
+    if ".finish" in label_list:
+        label_list.remove(".finish")
     data_id = 1
     for label in label_list:
         label_path = os.path.join(video_root_path, label)
@@ -42,7 +43,7 @@ def deal_all_label():
                 deal_video(video_path, file, data_id, label, to_path)
                 data_id += 1
 
-                print("\r" + label + " > {} %".format(video_id / len(video_list)), end="")
+                print("\r" + label + " > {} %".format(video_id / len(video_list) * 100), end="")
                 video_id += 1
 
 

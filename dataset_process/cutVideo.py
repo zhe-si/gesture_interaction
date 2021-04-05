@@ -23,7 +23,7 @@ use_finish_cache = True
 
 def main():
     # 保存路径
-    to_path = r"F:\My_Resources\datasets\click_keyboard\updown"
+    to_path = r"E:\sourse\python\MFF-GestureRecognition\MFF-pytorch\datasets\click_keyboard\updown"
     # 视频路径(自动判断是单个视频文件还是一个文件夹)
     video_path = r"E:\sourse\python\MFF-GestureRecognition\MFF-pytorch\datasets\click_keyboard\datasets"
 
@@ -41,7 +41,7 @@ def main():
     for lable in labels:
         lable_path = os.path.join(video_path, lable)
         videos = os.listdir(lable_path)
-        choose_videos = random.sample(videos, k=2)
+        choose_videos = random.sample(videos, k=1)
         for video in choose_videos:
             cut_video_auto(fourcc, show_interval, to_path, os.path.join(lable_path, video), video_type)
     pass
