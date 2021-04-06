@@ -4,7 +4,7 @@ import random
 
 
 def main():
-    root_path = r"F:\My_Resources\datasets\click_keyboard\output"
+    root_path = r"F:\My_Resources\datasets\click_keyboard\updown_j"
     train_percent = 0.7
     val_percent = 1 - train_percent
 

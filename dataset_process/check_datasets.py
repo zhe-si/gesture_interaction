@@ -5,7 +5,7 @@ from copyVideo import make_sure_path_exits
 
 
 def main():
-    root_path = r"F:\My_Resources\datasets\click_keyboard\updown_j"
+    root_path = r"F:\My_Resources\datasets\click_keyboard\click_point_j"
     data_path = os.path.join(root_path, "rgb")
     new_data_path = os.path.join(root_path, "rgb_new")
     make_sure_path_exits(new_data_path)
@@ -15,7 +15,7 @@ def main():
     tar_min_data_num = 5
     data_num_map = {}
 
-    only_check = True
+    only_check = False
 
     rgb_ids = os.listdir(data_path)
     new_id = 0
@@ -39,11 +39,14 @@ def main():
                 new_id += 1
                 new_tar_data_path = os.path.join(new_data_path, str(new_id))
                 new_file.write("{};{}".format(new_id, label))
+                new_file.flush()
                 if os.path.exists(new_tar_data_path):
                     print("error: new data id {} is repeat".format(new_id))
                     break
                 else:
                     shutil.copytree(tar_data_path, new_tar_data_path)
+                print("\rcheck ready: {}%".format(new_id / len(rgb_ids) * 100), end="")
+    print()
     print(data_num_map)
     print("avg: {}; min: {}; max: {};".format(*get_avg_min_max(data_num_map)))
 
