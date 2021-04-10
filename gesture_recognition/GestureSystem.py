@@ -23,60 +23,45 @@ class GestureSystem:
     """
 
     def __init__(self):
-        self.best_prec1 = 0
-        self.args = parser.parse_args()  # 导入配置参数
-        self.check_rootfolders()  # 创建日志和模型文件夹
+        # 加载参数
+        num_class, prefix = self._set_args()
 
-        # 标签列表，训练集txt路径，验证集txt路径，数据根路径（datasets/jester），图片文件名（{:05d}.jpg）
-        categories, self.args.train_list, self.args.val_list, self.args.root_path, prefix = \
-            datasets_video.return_dataset(self.args.dataset, self.args.modality)
-        num_class = len(categories)
+        # 设置日志（包括输出日志和tensorboard）
+        self._set_log()
 
-        self.args.store_name = '_'.join(['MFF', self.args.dataset, self.args.modality, self.args.arch,
-                                         'segment%d' % self.args.num_segments, '%df1c' % self.args.num_motion])
-        print('storing name: ' + self.args.store_name)
+        # 设置模型
+        crop_size, input_mean, input_std, scale_size, train_augmentation = self._set_model(num_class)
 
-        # tensorboard写入对象
-        self.board_writer = SummaryWriter("./log/tensorboard")
-
-        self.model = TSN(num_class, self.args.num_segments, self.args.modality,
-                         base_model=self.args.arch,
-                         consensus_type=self.args.consensus_type,
-                         dropout=self.args.dropout, num_motion=self.args.num_motion,
-                         img_feature_dim=self.args.img_feature_dim,
-                         partial_bn=not self.args.no_partialbn,
-                         dataset=self.args.dataset)
-
-        crop_size = self.model.crop_size
-        scale_size = self.model.scale_size
-        input_mean = self.model.input_mean
-        input_std = self.model.input_std
-        train_augmentation = self.model.get_augmentation()
-
-        policies = self.model.get_optim_policies()
-        self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpus).cuda()
-
-        if self.args.resume:
-            if os.path.isfile(self.args.resume):
-                print(("=> loading checkpoint '{}'".format(self.args.resume)))
-                checkpoint = torch.load(self.args.resume)
-                self.args.start_epoch = checkpoint['epoch']
-                self.best_prec1 = checkpoint['best_prec1']
-                self.model.load_state_dict(checkpoint['state_dict'])
-                print(("=> loaded checkpoint '{}' (epoch {})"
-                       .format(self.args.evaluate, checkpoint['epoch'])))
-            else:
-                print(("=> no checkpoint found at '{}'".format(self.args.resume)))
-
-        print(self.model)
+        # 令cudnn根据卷积网络的实际结构选择最佳的实现算法
         cudnn.benchmark = True
 
+        # 设置数据加载器
+        self._set_data_loader(crop_size, input_mean, input_std, prefix, scale_size, train_augmentation)
+
+        # 设置损失函数
+        self._set_loss_function()
+
+        # 验证
+        if self.args.evaluate:
+            self.validate()
+            return
+        else:
+            # 训练
+            self._train_all()
+
+    def _set_loss_function(self):
+        # define loss function (criterion) and optimizer
+        if self.args.loss_type == 'nll':
+            self.criterion = torch.nn.CrossEntropyLoss().cuda()
+        else:
+            raise ValueError("Unknown loss type")
+
+    def _set_data_loader(self, crop_size, input_mean, input_std, prefix, scale_size, train_augmentation):
         # Data loading code
         if (self.args.modality != 'RGBDiff') | (self.args.modality != 'RGBFlow'):
             normalize = GroupNormalize(input_mean, input_std)
         else:
             normalize = IdentityTransform()
-
         if self.args.modality == 'RGB':
             data_length = 1
         elif self.args.modality in ['Flow', 'RGBDiff']:
@@ -85,7 +70,7 @@ class GestureSystem:
             data_length = self.args.num_motion
         else:
             raise Exception("ars.modality is not allowed.")
-
+        # 训练数据加载器
         self.train_loader = torch.utils.data.DataLoader(
             TSNDataSet(self.args.root_path, self.args.train_list, num_segments=self.args.num_segments,
                        new_length=data_length,
@@ -101,7 +86,7 @@ class GestureSystem:
                        ])),
             batch_size=self.args.batch_size, shuffle=True,
             num_workers=self.args.workers, pin_memory=False)
-
+        # 验证数据加载器
         self.val_loader = torch.utils.data.DataLoader(
             TSNDataSet(self.args.root_path, self.args.val_list, num_segments=self.args.num_segments,
                        new_length=data_length,
@@ -120,32 +105,81 @@ class GestureSystem:
             batch_size=self.args.batch_size, shuffle=False,
             num_workers=self.args.workers, pin_memory=False)
 
-        # define loss function (criterion) and optimizer
-        if self.args.loss_type == 'nll':
-            self.criterion = torch.nn.CrossEntropyLoss().cuda()
-        else:
-            raise ValueError("Unknown loss type")
+    def _set_args(self):
+        self.best_prec1 = 0
+        self.args = parser.parse_args()  # 导入配置参数
+        self._check_rootfolders()  # 创建日志和模型文件夹
+        # 标签列表，训练集txt路径，验证集txt路径，数据根路径（datasets/jester），图片文件名（{:05d}.jpg）
+        categories, self.args.train_list, self.args.val_list, self.args.root_path, prefix = \
+            datasets_video.return_dataset(self.args.dataset, self.args.modality)
+        num_class = len(categories)
+        self.args.store_name = '_'.join(['MFF', self.args.dataset, self.args.modality, self.args.arch,
+                                         'segment%d' % self.args.num_segments, '%df1c' % self.args.num_motion])
+        print('storing name: ' + self.args.store_name)
+        return num_class, prefix
 
+    def _set_log(self):
+        # tensorboard log
+        self.board_writer = SummaryWriter("./log/tensorboard")
+        # 输出日志
+        self.output_log = open(os.path.join(self.args.root_log, '%s.csv' % self.args.store_name), 'w')
+
+    def _set_model(self, num_class):
+        # 数据模型
+        self.model = TSN(num_class, self.args.num_segments, self.args.modality,
+                         base_model=self.args.arch,
+                         consensus_type=self.args.consensus_type,
+                         dropout=self.args.dropout, num_motion=self.args.num_motion,
+                         img_feature_dim=self.args.img_feature_dim,
+                         partial_bn=not self.args.no_partialbn,
+                         dataset=self.args.dataset)
+        crop_size = self.model.crop_size
+        scale_size = self.model.scale_size
+        input_mean = self.model.input_mean
+        input_std = self.model.input_std
+        train_augmentation = self.model.get_augmentation()
+
+        # 根据学习率定义优化器（SGD）
+        self._set_optimizer()
+
+        # 数据模型（转化为cuda）
+        self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpus).cuda()
+
+        # 加载训练好的模型
+        if self.args.resume:
+            self._load_model()
+
+        print(self.model)
+
+        return crop_size, input_mean, input_std, scale_size, train_augmentation
+
+    def _set_optimizer(self):
+        # 学习率调增策略
+        policies = self.model.get_optim_policies()
         for group in policies:
             print(('group: {} has {} params, lr_mult: {}, decay_mult: {}'.format(
                 group['name'], len(group['params']), group['lr_mult'], group['decay_mult'])))
-
         # 优化器
         self.optimizer = torch.optim.SGD(policies,
                                          self.args.lr,
                                          momentum=self.args.momentum,
                                          weight_decay=self.args.weight_decay)
 
-        # 若不训练，只是验证
-        if self.args.evaluate:
-            self.log_training = open(os.path.join(self.args.root_log, '%s.csv' % self.args.store_name), 'w')
-            self.validate()
-            self.log_training.close()
-            return
+    def _load_model(self):
+        if os.path.isfile(self.args.resume):
+            print(("=> loading checkpoint '{}'".format(self.args.resume)))
+            checkpoint = torch.load(self.args.resume)
+            self.args.start_epoch = checkpoint['epoch']
+            self.best_prec1 = checkpoint['best_prec1']
+            self.model.load_state_dict(checkpoint['state_dict'])
+            print(("=> loaded checkpoint '{}' (epoch {})"
+                   .format(self.args.evaluate, checkpoint['epoch'])))
+        else:
+            print(("=> no checkpoint found at '{}'".format(self.args.resume)))
 
-        self.log_training = open(os.path.join(self.args.root_log, '%s.csv' % self.args.store_name), 'w')
+    def _train_all(self):
         for epoch in range(self.args.start_epoch, self.args.epochs):
-            self.adjust_learning_rate(epoch, self.args.lr_steps)
+            self._adjust_learning_rate(epoch, self.args.lr_steps)
 
             # train for one epoch
             self.train(epoch)
@@ -158,7 +192,7 @@ class GestureSystem:
                 # remember best prec@1 and save checkpoint
                 is_best = prec1 > self.best_prec1
                 self.best_prec1 = max(prec1, self.best_prec1)
-                self.save_checkpoint({
+                self._save_checkpoint({
                     'epoch': epoch + 1,
                     'arch': self.args.arch,
                     'state_dict': self.model.state_dict(),
@@ -166,7 +200,7 @@ class GestureSystem:
                 }, is_best)
             else:
                 # 每次存储检查点而不验证
-                self.save_checkpoint({
+                self._save_checkpoint({
                     'epoch': epoch + 1,
                     'arch': self.args.arch,
                     'state_dict': self.model.state_dict(),
@@ -175,8 +209,9 @@ class GestureSystem:
 
     def __del__(self):
         self.board_writer.close()
+        self.output_log.close()
 
-    def check_rootfolders(self):
+    def _check_rootfolders(self):
         """Create log and model folder"""
         folders_util = [self.args.root_log, self.args.root_model, self.args.root_output]
         for folder in folders_util:
@@ -184,14 +219,14 @@ class GestureSystem:
                 print('creating folder ' + folder)
                 os.mkdir(folder)
 
-    def save_checkpoint(self, state, is_best):
+    def _save_checkpoint(self, state, is_best):
         # 存在log/..._checkpoint.pth.tar中
         torch.save(state, '%s/%s_checkpoint.pth.tar' % (self.args.root_model, self.args.store_name))
         if is_best:
             shutil.copyfile('%s/%s_checkpoint.pth.tar' % (self.args.root_model, self.args.store_name),
                             '%s/%s_best.pth.tar' % (self.args.root_model, self.args.store_name))
 
-    def adjust_learning_rate(self, epoch, lr_steps):
+    def _adjust_learning_rate(self, epoch, lr_steps):
         """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
         decay = 0.5 ** (sum(epoch >= np.array(lr_steps)))
         lr = self.args.lr * decay
@@ -259,8 +294,8 @@ class GestureSystem:
                     data_time=data_time, loss=losses, top1=top1, top5=top5, lr=self.optimizer.param_groups[-1]['lr']))
                 print(output)
 
-                self.log_training.write(output + '\n')
-                self.log_training.flush()
+                self.output_log.write(output + '\n')
+                self.output_log.flush()
 
                 self.board_writer.add_scalar("loss", losses.val, global_step=epoch * len(self.train_loader) + i)
                 self.board_writer.add_scalar("prec@1", top1.val, global_step=epoch * len(self.train_loader) + i)
@@ -309,16 +344,16 @@ class GestureSystem:
                           'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'
                           .format(i, len(self.val_loader), batch_time=batch_time, loss=losses, top1=top1, top5=top5))
                 print(output)
-                self.log_training.write(output + '\n')
-                self.log_training.flush()
+                self.output_log.write(output + '\n')
+                self.output_log.flush()
 
         output = ('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f}'
                   .format(top1=top1, top5=top5, loss=losses))
         print(output)
         output_best = '\nBest Prec@1: %.3f' % self.best_prec1
         print(output_best)
-        self.log_training.write(output + ' ' + output_best + '\n')
-        self.log_training.flush()
+        self.output_log.write(output + ' ' + output_best + '\n')
+        self.output_log.flush()
 
         return top1.avg
 
