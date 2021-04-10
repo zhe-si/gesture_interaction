@@ -7,6 +7,7 @@ import torch.optim
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm
 from torch.utils.data.sampler import SequentialSampler
+from torch.utils.tensorboard import SummaryWriter
 
 from dataset import TSNDataSet
 from models import TSN
@@ -32,6 +33,9 @@ def main():
     args.store_name = '_'.join(['MFF', args.dataset, args.modality, args.arch,
                                 'segment%d' % args.num_segments, '%df1c' % args.num_motion])
     print('storing name: ' + args.store_name)
+
+    # tensorboard写入对象
+    board_writer = SummaryWriter("./log/tensorboard")
 
     model = TSN(num_class, args.num_segments, args.modality,
                 base_model=args.arch,
@@ -138,7 +142,7 @@ def main():
         adjust_learning_rate(optimizer, epoch, args.lr_steps)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, log_training)
+        train(train_loader, model, criterion, optimizer, epoch, log_training, board_writer)
 
         # 在训练结束后评估模型，完成后退出
         # evaluate on validation set
@@ -154,9 +158,18 @@ def main():
                 'state_dict': model.state_dict(),
                 'best_prec1': best_prec1,
             }, is_best)
+        else:
+            # 每次存储检查点而不验证
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'arch': args.arch,
+                'state_dict': model.state_dict(),
+                'best_prec1': best_prec1,
+            }, False)
+    board_writer.close()
 
 
-def train(train_loader, model, criterion, optimizer, epoch, log):
+def train(train_loader, model, criterion, optimizer, epoch, log, board_writer):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -216,8 +229,14 @@ def train(train_loader, model, criterion, optimizer, epoch, log):
                 epoch, i, len(train_loader), batch_time=batch_time,
                 data_time=data_time, loss=losses, top1=top1, top5=top5, lr=optimizer.param_groups[-1]['lr']))
             print(output)
+
             log.write(output + '\n')
             log.flush()
+            board_writer.add_scalar("loss", losses.val, global_step=epoch * len(train_loader) + i)
+            board_writer.add_scalar("prec@1", top1.val, global_step=epoch * len(train_loader) + i)
+            board_writer.add_scalar("prec@5", top5.val, global_step=epoch * len(train_loader) + i)
+            board_writer.add_scalar("lr", optimizer.param_groups[-1]['lr'], global_step=epoch * len(train_loader) + i)
+            board_writer.flush()
 
 
 def validate(val_loader, model, criterion, iter, log):

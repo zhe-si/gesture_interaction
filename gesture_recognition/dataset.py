@@ -163,6 +163,7 @@ class TSNDataSet(data.Dataset):
                 if p < record.num_frames:
                     p += 1
 
+        # images 一组图片共（self.new_length - 1）*2 + 1张，前self.new_length - 1每次对应横纵两张光流图，最后一张对应rgb；共self.num_segments组
         process_data = self.transform(images)
         return process_data, record.label
 

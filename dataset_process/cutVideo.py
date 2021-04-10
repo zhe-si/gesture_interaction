@@ -8,9 +8,12 @@ import time
 import cv2
 
 # 键盘按键：标签
-sign_map = {"1": "Click Down", "2": "Click Up", "3": "Swipe",
-            "4": "Zooming Out With Two Hands", "5": "Zooming In With Two Hands", "6": "Catch",
-            "7": "Turn With Two Hands Clockwise", "8": "Turn With Two Hands Counterclockwise"}
+# sign_map = {"1": "Click Down", "2": "Click Up", "3": "Swipe",
+#             "4": "Zooming Out With Two Hands", "5": "Zooming In With Two Hands", "6": "Catch",
+#             "7": "Turn With Two Hands Clockwise", "8": "Turn With Two Hands Counterclockwise",
+#             "9": "Pushing Two Fingers Away", "10": "Shaking Hand", "11": "Thumb Up", "12": "Other"}
+
+sign_map = {"3": "Down", "4": "Up"}
 
 time_format = "%Y-%m-%d-%H-%M-%S"
 
@@ -20,16 +23,27 @@ use_finish_cache = True
 
 def main():
     # 保存路径
-    to_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\拷贝\video\根据标签切割"
+    to_path = r"E:\sourse\python\MFF-GestureRecognition\MFF-pytorch\datasets\click_keyboard\updown"
     # 视频路径(自动判断是单个视频文件还是一个文件夹)
-    video_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\拷贝\video\待分类\lq手机\VID_20210323_204812.mp4"
+    video_path = r"E:\sourse\python\MFF-GestureRecognition\MFF-pytorch\datasets\click_keyboard\datasets"
 
     # 显示频率，空格跳过的时间/s，可自由设置
-    show_interval = 0.12
-    fourcc = cv2.VideoWriter_fourcc('D', 'I', 'V', 'X')  # mp4编节码器
+    show_interval = 0.00001
+    # fourcc = cv2.VideoWriter_fourcc('D', 'I', 'V', 'X')  # mp4编节码器
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # mp4编节码器
     video_type = ".mp4"
 
-    cut_video_auto(fourcc, show_interval, to_path, video_path, video_type)
+    # cut_video_auto(fourcc, show_interval, to_path, video_path, video_type)
+
+    labels = os.listdir(video_path)
+    labels = [i for i in labels if i.split("-")[1] != 1]
+    labels = random.sample(labels, k=len(labels) // 4)
+    for lable in labels:
+        lable_path = os.path.join(video_path, lable)
+        videos = os.listdir(lable_path)
+        choose_videos = random.sample(videos, k=1)
+        for video in choose_videos:
+            cut_video_auto(fourcc, show_interval, to_path, os.path.join(lable_path, video), video_type)
     pass
 
 
