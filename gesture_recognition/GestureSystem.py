@@ -20,6 +20,10 @@ from main import AverageMeter, accuracy
 class GestureSystem:
     """
     手势识别系统
+    1. 可以加载jester数据集进行训练
+    2. 可以加载jester数据集进行验证
+    3. 可以处理某视频得到连续帧数据并作为一组数据进行识别
+    4. 可以加载之前训练好的模型
     """
 
     def __init__(self):
@@ -41,13 +45,17 @@ class GestureSystem:
         # 设置损失函数
         self._set_loss_function()
 
-        # 验证
+        # 验证 (若命令行未写该参数，默认为false)
         if self.args.evaluate:
             self.validate()
             return
         else:
             # 训练
             self._train_all()
+
+    def __del__(self):
+        self.board_writer.close()
+        self.output_log.close()
 
     def _set_loss_function(self):
         # define loss function (criterion) and optimizer
@@ -62,6 +70,7 @@ class GestureSystem:
             normalize = GroupNormalize(input_mean, input_std)
         else:
             normalize = IdentityTransform()
+
         if self.args.modality == 'RGB':
             data_length = 1
         elif self.args.modality in ['Flow', 'RGBDiff']:
@@ -70,6 +79,7 @@ class GestureSystem:
             data_length = self.args.num_motion
         else:
             raise Exception("ars.modality is not allowed.")
+
         # 训练数据加载器
         self.train_loader = torch.utils.data.DataLoader(
             TSNDataSet(self.args.root_path, self.args.train_list, num_segments=self.args.num_segments,
@@ -86,6 +96,7 @@ class GestureSystem:
                        ])),
             batch_size=self.args.batch_size, shuffle=True,
             num_workers=self.args.workers, pin_memory=False)
+
         # 验证数据加载器
         self.val_loader = torch.utils.data.DataLoader(
             TSNDataSet(self.args.root_path, self.args.val_list, num_segments=self.args.num_segments,
@@ -109,13 +120,16 @@ class GestureSystem:
         self.best_prec1 = 0
         self.args = parser.parse_args()  # 导入配置参数
         self._check_rootfolders()  # 创建日志和模型文件夹
+
         # 标签列表，训练集txt路径，验证集txt路径，数据根路径（datasets/jester），图片文件名（{:05d}.jpg）
         categories, self.args.train_list, self.args.val_list, self.args.root_path, prefix = \
             datasets_video.return_dataset(self.args.dataset, self.args.modality)
         num_class = len(categories)
+
         self.args.store_name = '_'.join(['MFF', self.args.dataset, self.args.modality, self.args.arch,
                                          'segment%d' % self.args.num_segments, '%df1c' % self.args.num_motion])
         print('storing name: ' + self.args.store_name)
+
         return num_class, prefix
 
     def _set_log(self):
@@ -156,9 +170,11 @@ class GestureSystem:
     def _set_optimizer(self):
         # 学习率调增策略
         policies = self.model.get_optim_policies()
+
         for group in policies:
             print(('group: {} has {} params, lr_mult: {}, decay_mult: {}'.format(
                 group['name'], len(group['params']), group['lr_mult'], group['decay_mult'])))
+
         # 优化器
         self.optimizer = torch.optim.SGD(policies,
                                          self.args.lr,
@@ -206,10 +222,6 @@ class GestureSystem:
                     'state_dict': self.model.state_dict(),
                     'best_prec1': self.best_prec1,
                 }, False)
-
-    def __del__(self):
-        self.board_writer.close()
-        self.output_log.close()
 
     def _check_rootfolders(self):
         """Create log and model folder"""

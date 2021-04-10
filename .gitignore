@@ -10,6 +10,8 @@ gesture_recognition/log/
 
 gesture_recognition/model/
 
+gesture_recognition/model_copy/
+
 gesture_recognition/output/
 
 gesture_recognition/pretrained_models/
