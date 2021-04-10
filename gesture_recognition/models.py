@@ -106,11 +106,12 @@ class TSN(nn.Module):
 
         if 'resnet' in base_model or 'vgg' in base_model or 'squeezenet1_1' in base_model:
             self.base_model = pretrainedmodels.__dict__[base_model](num_classes=1000, pretrained='imagenet')
+            del self.base_model.fc
             if base_model == 'squeezenet1_1':
                 self.base_model = self.base_model.features
                 self.base_model.last_layer_name = '12'
             else:
-                self.base_model.last_layer_name = 'fc'
+                self.base_model.last_layer_name = 'last_linear'
             self.input_size = 224
             self.input_mean = [0.485, 0.456, 0.406]
             self.input_std = [0.229, 0.224, 0.225]
@@ -242,6 +243,7 @@ class TSN(nn.Module):
         if self.reshape:
             base_out = base_out.view((-1, self.num_segments) + base_out.size()[1:])
 
+        # 对应MLP多层感知机
         output = self.consensus(base_out)
         return output.squeeze(1)
 
