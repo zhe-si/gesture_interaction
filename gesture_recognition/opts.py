@@ -40,7 +40,7 @@ parser.add_argument('--no_partialbn', '--npb', default=False, action="store_true
 # ========================= Monitor Configs ==========================
 parser.add_argument('--print-freq', '-p', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--eval-freq', '-ef', default=1, type=int,
+parser.add_argument('--eval-freq', '-ef', default=3, type=int,
                     metavar='N', help='evaluation frequency (default: 5)')
 
 # ========================= Runtime Configs ==========================

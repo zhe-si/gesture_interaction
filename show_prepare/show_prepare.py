@@ -10,10 +10,10 @@
 # 拍一个敲击n个字母的视频
 # 生成每一帧的光流
 # 显示rgb与光流，在一旁的窗口显示敲击状态与敲击位置，在一个txt中产生字符
-import os
-from time import sleep
 
+import os
 import cv2
+from pynput.keyboard import Key, Controller
 
 
 def main():
@@ -49,16 +49,26 @@ def main():
                         (2128, 2136): l_down, (2137, 2143): l_up, (2144, 2153): l_down, (2154, 2164): l_up, (2165, 2171): l_down, (2172, 2179): l_up,
                         (2182, 2188): l_down, (2189, 2199): l_up, (2202, 2207): l_down, (2208, 2211): l_up, (2213, 2222): l_down, (2223, 2238): l_up,
                         (2244, 2253): l_down, (2254, 2262): l_up, (2277, 2287): l_down, (2288, 2301): l_up}
-    time_click_point_map = {(57, 81): "y", (116, 141): "r", (185, 197): "i", (268, 281): "j", (310, 327): "g",
-                            (394, 415): "space", (495, 506): "a", (579, 597): "p", (664, 676): "w",
-                            (744, 764): "x", (718, 829): "b", (890, 905): "3", (963, 976): "8", (1033, 1041): "0",
-                            (1081, 1091): "0", (1176, 1199): "ctrl", (1269, 1285): "shift", (1350, 1379): "shift",
-                            (1489, 1502): "h", (1518, 1529): "e", (1552, 1563): "l", (1566, 1577): "l", (1609, 1619): "o",
-                            (1687, 1695): "w", (1724, 1737): "o", (1745, 1764): "r", (1767, 1781): "l", (1790, 1803): "d",
-                            (1906, 1924): "space", (1970, 1981): "l", (1997, 2008): "q", (2092, 2102): "2", (2115, 2124): "0",
-                            (2131, 2141): "1", (2148, 2160): "8", (2168, 2180): "3", (2185, 2195): "0",
-                            (2203, 2211): "3", (2217, 2228): "0", (2249, 2257): "2", (2283, 2292): "3"}
+    time_click_point_map = {(57, 81): ("y", "right-2-7"), (116, 141): ("r", "left-4-8"), (185, 197): ("i", "right-3-8"),
+                            (268, 281): ("j", "right-2-13"), (310, 327): ("g", "left-4-14"),
+                            (394, 415): ("space", "left-5-13"), (495, 506): ("a", "left-1-13"), (579, 597): ("p", "right-5-8"),
+                            (664, 676): ("w", "left-2-8"),
+                            (744, 764): ("x", "left-2-18"), (718, 829): ("b", "left-4-19"), (890, 905): ("3", "left-3-3"), (963, 976): ("8", "right-3-3"),
+                            (1033, 1041): ("0", "right-4-4"),
+                            (1081, 1091): ("0", "right-4-4"), (1176, 1199): ("ctrl", "left-1-21"), (1269, 1285): ("shift", "left-1-17"),
+                            (1350, 1379): ("shift", "left-1-17"),
+                            (1489, 1502): ("h", "right-2-12"), (1518, 1529): ("e", "left-3-8"), (1552, 1563): ("l", "right-4-13"),
+                            (1566, 1577): ("l", "right-4-13"), (1609, 1619): ("o", "right-4-8"),
+                            (1687, 1695): ("w", "left-2-8"), (1724, 1737): ("o", "right-4-8"), (1745, 1764): ("r", "left-4-8"),
+                            (1767, 1781): ("l", "right-4-13"), (1790, 1803): ("d", "left-3-13"),
+                            (1906, 1924): ("space", "left-5-13"), (1970, 1981): ("l", "right-4-13"), (1997, 2008): ("q", "left-1-8"),
+                            (2092, 2102): ("2", "left-2-3"), (2115, 2124): ("0", "right-4-4"),
+                            (2131, 2141): ("1", "left-2-2"), (2148, 2160): ("8", "right-3-3"), (2168, 2180): ("3", "left-3-3"),
+                            (2185, 2195): ("0", "right-4-4"),
+                            (2203, 2211): ("3", "left-3-3"), (2217, 2228): ("0", "right-4-4"), (2249, 2257): ("2", "left-2-3"),
+                            (2283, 2292): ("3", "left-3-3")}
 
+    keyboard = Controller()
     for i in range(len(rgb_pics)):
         rgb_pic = cv2.imread(os.path.join(rgb_path, rgb_pics[i]))
         cv2.imshow("RGB input", rgb_pic)
@@ -66,10 +76,51 @@ def main():
         cv2.imshow("Flow u input", flow_u_pic)
         flow_v_pic = cv2.imread(os.path.join(flow_v_path, flow_v_pics[i]))
         cv2.imshow("Flow v input", flow_v_pic)
-        print("\rnow: {}".format(i), end="")
-        cv2.waitKey()
-        sleep(1 / (fps + 1))
-    pass
+        if i == 0:
+            cv2.waitKey(1000 * 10)
+        else:
+            cv2.waitKey(30)
+        frame_things(i, time_up_down_map, time_click_point_map, keyboard)
+
+
+last_sign = "Other"
+
+
+def frame_things(now_frame: int, t_ud_map: dict, t_cp_map: dict, keyboard):
+    global last_sign
+    l_ud, l_cp = "Other", "Other"
+    now_click_point = "Other"
+    # click point
+    for key, sign in t_cp_map.items():
+        if key[0] <= now_frame <= key[1]:
+            print("click point sign: {}, map to {}".format(sign[1], sign[0]))
+            now_click_point = sign[0]
+            break
+    else:
+        print("click point sign: {}, map to {}".format(l_cp, None))
+    # up or down
+    for key, sign in t_ud_map.items():
+        if key[0] <= now_frame <= key[1]:
+            print("Up or Down sign: {}".format(sign))
+            if last_sign == "Down" and sign == "Up" and now_click_point != "Other":
+                if now_click_point == "space":
+                    click_key(keyboard, Key.space)
+                elif now_click_point == "ctrl":
+                    click_key(keyboard, Key.ctrl)
+                elif now_click_point == "shift":
+                    click_key(keyboard, Key.shift)
+                else:
+                    click_key(keyboard, now_click_point)
+            last_sign = sign
+            break
+    else:
+        print("Up or Down sign: {}".format(l_ud))
+        last_sign = "Other"
+
+
+def click_key(keyboard, key):
+    keyboard.press(key)
+    keyboard.release(key)
 
 
 if __name__ == '__main__':

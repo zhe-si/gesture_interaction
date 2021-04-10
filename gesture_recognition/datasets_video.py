@@ -2,7 +2,8 @@
 
 import os
 
-ROOT_DATASET = 'E:/sourse/python/MFF-GestureRecognition/MFF-pytorch/datasets/'
+ROOT_DATASET = 'F:/My_Resources/datasets/GestureRecognition_fwwb/'
+# ROOT_DATASET = 'E:/sourse/python/MFF-GestureRecognition/MFF-pytorch/datasets/'
 
 
 def return_jester(modality):

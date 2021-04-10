@@ -16,7 +16,7 @@
 
 import os
 
-dataset_path = r"F:\My_Resources\datasets\click_keyboard\updown_j"
+dataset_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\jester"
 dataset_name = 'jester-v1'
 
 # 要求有所有标签名, 会将其排序后存到category.txt

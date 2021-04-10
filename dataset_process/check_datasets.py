@@ -5,7 +5,7 @@ from copyVideo import make_sure_path_exits
 
 
 def main():
-    root_path = r"F:\My_Resources\datasets\click_keyboard\click_point_j"
+    root_path = r"F:\My_Resources\datasets\GestureRecognition_fwwb\dataset"
     data_path = os.path.join(root_path, "rgb")
     new_data_path = os.path.join(root_path, "rgb_new")
     make_sure_path_exits(new_data_path)
