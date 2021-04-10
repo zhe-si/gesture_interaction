@@ -135,6 +135,7 @@ def main():
     if args.evaluate:
         log_training = open(os.path.join(args.root_log, '%s.csv' % args.store_name), 'w')
         validate(val_loader, model, criterion, 0, log_training)
+        log_training.close()
         return
 
     log_training = open(os.path.join(args.root_log, '%s.csv' % args.store_name), 'w')
