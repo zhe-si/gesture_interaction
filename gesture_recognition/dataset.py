@@ -35,6 +35,7 @@ class TSNDataSet(data.Dataset):
         self.root_path = root_path
         self.list_file = list_file
         self.num_segments = num_segments
+        # new_length是args.num_motion赋的值, new_length = args.num_motion + 1
         self.new_length = new_length
         self.modality = modality
         self.image_tmpl = image_tmpl

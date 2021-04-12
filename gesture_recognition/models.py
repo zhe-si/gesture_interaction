@@ -293,7 +293,8 @@ class TSN(nn.Module):
         new_conv = nn.Conv2d(new_kernel_size[1], conv_layer.out_channels,
                              conv_layer.kernel_size, conv_layer.stride, conv_layer.padding,
                              bias=True if len(params) == 2 else False)
-        new_conv.weight.data = new_kernels
+        # TODO:此处的操作可能会让pytorch在多gpu环境下出错
+        new_conv.weight = torch.nn.Parameter(new_kernels)
         if len(params) == 2:
             new_conv.bias.data = params[1].data  # add bias if neccessary
         layer_name = list(container.state_dict().keys())[0][:-7]  # remove .weight suffix to get the layer name

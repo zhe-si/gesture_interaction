@@ -30,6 +30,4 @@ class MLPmodule(torch.nn.Module):
 
 
 def return_MLP(relation_type, img_feature_dim, num_frames, num_class):
-    MLPmodel = MLPmodule(img_feature_dim, num_frames, num_class)
-
-    return MLPmodel
+    return MLPmodule(img_feature_dim, num_frames, num_class)

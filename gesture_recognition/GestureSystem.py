@@ -1,6 +1,8 @@
 import os
 import time
 import shutil
+
+import PIL.Image
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
@@ -26,32 +28,32 @@ class GestureSystem:
     4. 可以加载之前训练好的模型
     """
 
-    def __init__(self):
+    def __init__(self, base_model_name=None):
         # 加载参数
-        num_class, prefix = self._set_args()
+        self.num_class, self.prefix = self._set_args()
 
         # 设置日志（包括输出日志和tensorboard）
         self._set_log()
 
         # 设置模型
-        crop_size, input_mean, input_std, scale_size, train_augmentation = self._set_model(num_class)
+        if base_model_name is not None:
+            self.args.arch = base_model_name
+        self.crop_size, self.input_mean, self.input_std, self.scale_size, self.train_augmentation \
+            = self._set_model(self.num_class)
 
         # 令cudnn根据卷积网络的实际结构选择最佳的实现算法
         cudnn.benchmark = True
 
-        # 设置数据加载器
-        self._set_data_loader(crop_size, input_mean, input_std, prefix, scale_size, train_augmentation)
-
         # 设置损失函数
         self._set_loss_function()
 
-        # 验证 (若命令行未写该参数，默认为false)
-        if self.args.evaluate:
-            self.validate()
-            return
-        else:
-            # 训练
-            self._train_all()
+        self.train_loader = None
+        self.val_loader = None
+        self._set_dataloader_args(self.input_mean, self.input_std)
+
+        # 设置实时视频处理
+        self.deal_video = DealVideo(self.data_length, self.args.modality, self.normalize, self.args.arch,
+                                    self.scale_size, self.crop_size, self.args.num_segments)
 
     def __del__(self):
         self.board_writer.close()
@@ -64,57 +66,58 @@ class GestureSystem:
         else:
             raise ValueError("Unknown loss type")
 
-    def _set_data_loader(self, crop_size, input_mean, input_std, prefix, scale_size, train_augmentation):
-        # Data loading code
-        if (self.args.modality != 'RGBDiff') | (self.args.modality != 'RGBFlow'):
-            normalize = GroupNormalize(input_mean, input_std)
-        else:
-            normalize = IdentityTransform()
-
-        if self.args.modality == 'RGB':
-            data_length = 1
-        elif self.args.modality in ['Flow', 'RGBDiff']:
-            data_length = 5
-        elif self.args.modality == 'RGBFlow':
-            data_length = self.args.num_motion
-        else:
-            raise Exception("ars.modality is not allowed.")
-
+    def _set_train_dataloader(self):
         # 训练数据加载器
         self.train_loader = torch.utils.data.DataLoader(
             TSNDataSet(self.args.root_path, self.args.train_list, num_segments=self.args.num_segments,
-                       new_length=data_length,
+                       new_length=self.data_length,
                        modality=self.args.modality,
-                       image_tmpl=prefix,
+                       image_tmpl=self.prefix,
                        dataset=self.args.dataset,
                        transform=torchvision.transforms.Compose([
-                           train_augmentation,
+                           self.train_augmentation,
                            Stack(roll=(self.args.arch in ['BNInception', 'InceptionV3']),
                                  isRGBFlow=(self.args.modality == 'RGBFlow')),
                            ToTorchFormatTensor(div=(self.args.arch not in ['BNInception', 'InceptionV3'])),
-                           normalize,
+                           self.normalize,
                        ])),
             batch_size=self.args.batch_size, shuffle=True,
             num_workers=self.args.workers, pin_memory=False)
 
+    def _set_val_dataloader(self):
         # 验证数据加载器
         self.val_loader = torch.utils.data.DataLoader(
             TSNDataSet(self.args.root_path, self.args.val_list, num_segments=self.args.num_segments,
-                       new_length=data_length,
+                       new_length=self.data_length,
                        modality=self.args.modality,
-                       image_tmpl=prefix,
+                       image_tmpl=self.prefix,
                        dataset=self.args.dataset,
                        random_shift=False,
                        transform=torchvision.transforms.Compose([
-                           GroupScale(int(scale_size)),
-                           GroupCenterCrop(crop_size),
+                           GroupScale(int(self.scale_size)),
+                           GroupCenterCrop(self.crop_size),
                            Stack(roll=(self.args.arch in ['BNInception', 'InceptionV3']),
                                  isRGBFlow=(self.args.modality == 'RGBFlow')),
                            ToTorchFormatTensor(div=(self.args.arch not in ['BNInception', 'InceptionV3'])),
-                           normalize,
+                           self.normalize,
                        ])),
             batch_size=self.args.batch_size, shuffle=False,
             num_workers=self.args.workers, pin_memory=False)
+
+    def _set_dataloader_args(self, input_mean, input_std):
+        # Data loading code
+        if (self.args.modality != 'RGBDiff') | (self.args.modality != 'RGBFlow'):
+            self.normalize = GroupNormalize(input_mean, input_std)
+        else:
+            self.normalize = IdentityTransform()
+        if self.args.modality == 'RGB':
+            self.data_length = 1
+        elif self.args.modality in ['Flow', 'RGBDiff']:
+            self.data_length = 5
+        elif self.args.modality == 'RGBFlow':
+            self.data_length = self.args.num_motion
+        else:
+            raise Exception("ars.modality is not allowed.")
 
     def _set_args(self):
         self.best_prec1 = 0
@@ -198,7 +201,7 @@ class GestureSystem:
             self._adjust_learning_rate(epoch, self.args.lr_steps)
 
             # train for one epoch
-            self.train(epoch)
+            self._train_epoch(epoch)
 
             # 在训练结束后评估模型，完成后退出
             # evaluate on validation set
@@ -247,7 +250,7 @@ class GestureSystem:
             param_group['lr'] = lr * param_group['lr_mult']
             param_group['weight_decay'] = decay * param_group['decay_mult']
 
-    def train(self, epoch):
+    def _train_epoch(self, epoch):
         batch_time = AverageMeter()
         data_time = AverageMeter()
         losses = AverageMeter()
@@ -316,7 +319,19 @@ class GestureSystem:
                                              global_step=epoch * len(self.train_loader) + i)
                 self.board_writer.flush()
 
+    def print_model(self):
+        """**打印模型**"""
+        print(self.model)
+
     def validate(self):
+        """**验证模型**
+
+        Returns:
+            准确率的平均值
+        """
+        if self.val_loader is None:
+            self._set_val_dataloader()
+
         batch_time = AverageMeter()
         losses = AverageMeter()
         top1 = AverageMeter()
@@ -362,12 +377,137 @@ class GestureSystem:
         output = ('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f}'
                   .format(top1=top1, top5=top5, loss=losses))
         print(output)
-        output_best = '\nBest Prec@1: %.3f' % self.best_prec1
+        output_best = '\nBest train Prec@1: %.3f' % self.best_prec1
         print(output_best)
         self.output_log.write(output + ' ' + output_best + '\n')
         self.output_log.flush()
 
         return top1.avg
+
+    def load_model(self, model_path=None):
+        """**加载已有模型参数**
+
+        要求和设置的网络对应
+
+        Args:
+            model_path: 加载的目标模型路径
+        """
+        if model_path is not None:
+            self.args.resume = model_path
+        self._load_model()
+
+    def train(self, epochs=None, epochs_start=None, eval_freq=None):
+        """**训练**
+
+        默认epochs从0训练100次
+
+        Args:
+            epochs: 训练轮次
+            epochs_start: 训练开始轮次（用于多次调用该函数接着上次的训练）
+            eval_freq: 验证模型与更新最佳模型频率
+        """
+        if epochs is not None:
+            self.args.epochs = epochs
+        if epochs_start is not None:
+            self.args.start_epoch = epochs_start
+        if eval_freq is not None:
+            self.args.eval_freq = eval_freq
+
+        if self.train_loader is None or self.val_loader is None:
+            self._set_train_dataloader()
+            self._set_val_dataloader()
+        self._train_all()
+
+    def classify(self, rgb_list, flow_u_list, flow_v_list):
+        end = time.time()
+
+        # switch to evaluate mode
+        self.model.eval()
+
+        input_data = self.deal_video.turn_imgs_to_mff_input(rgb_list, flow_u_list, flow_v_list)
+        with torch.no_grad():
+            input_var = Variable(input_data)
+
+        # compute output
+        output = self.model(input_var)
+
+        # measure elapsed time
+        print("classify: Time: {:.3f}".format(time.time() - end))
+
+        # top = output.topk(1, dim=1, largest=True, sorted=True)
+        # return (top.indices.item(), top.values.item())
+        return max(enumerate(output[0]), key=lambda x: x[1])
+
+
+class DealVideo:
+    def __init__(self, new_length, modality, normalize, model_name, scale_size, crop_size,
+                 num_segments, transform=None):
+        self.new_length = new_length
+        self.modality = modality
+        self.normalize = normalize
+        self.scale_size = scale_size
+        self.crop_size = crop_size
+        self.num_segments = num_segments
+        if transform is not None:
+            self.transform = transform
+        else:
+            self.transform = torchvision.transforms.Compose([
+                GroupScale(int(self.scale_size)),
+                GroupCenterCrop(self.crop_size),
+                Stack(roll=(model_name in ['BNInception', 'InceptionV3']),
+                      isRGBFlow=(self.modality == 'RGBFlow')),
+                ToTorchFormatTensor(div=(model_name not in ['BNInception', 'InceptionV3'])),
+                self.normalize,
+            ])
+
+        if self.modality == 'RGBDiff' or self.modality == 'RGBFlow':
+            self.new_length += 1  # Diff needs one more image to calculate diff
+
+    @staticmethod
+    def _get_val_indices(num_frames, num_segments, new_length):
+        if num_frames > num_segments + new_length - 1:
+            tick = (num_frames - new_length + 1) / float(num_segments)
+            offsets = np.array([int(tick / 2.0 + tick * x) for x in range(num_segments)])
+        else:
+            offsets = np.zeros((num_segments,))
+        return offsets + 1
+
+    def turn_imgs_to_mff_input(self, rgb_list, flow_u_list, flow_v_list):
+        indices = DealVideo._get_val_indices(len(rgb_list), self.num_segments, self.new_length)
+        return self._turn_imgs_to_mff_input(rgb_list, flow_u_list, flow_v_list, indices)
+
+    def _turn_imgs_to_mff_input(self, rgb_list, flow_u_list, flow_v_list, indices):
+        """**将连续n帧图片数据转化为对应采样与数据融合的输入数据**
+
+        Args:
+            rgb_list: rgb图片，PIL.Image.Image类型
+            flow_u_list: flow_u图片，PIL.Image.Image类型
+            flow_v_list: flow_v图片，PIL.Image.Image类型
+            indices: 采样索引
+        """
+        num_frames = len(rgb_list)
+        images = []
+        for seg_ind in indices:
+            p = int(seg_ind)
+            for i in range(self.new_length):
+                if self.modality == 'RGBFlow':
+                    if i == self.new_length - 1:
+                        seg_imgs = [rgb_list[p].convert('RGB')]
+                    else:
+                        if p == num_frames:
+                            seg_imgs = [flow_u_list[p - 1].convert('L'), flow_v_list[p - 1].convert('L')]
+                        else:
+                            seg_imgs = [flow_u_list[p].convert('L'), flow_v_list[p].convert('L')]
+                else:
+                    raise Exception("self.modality {} is not allowed".format(self.modality))
+
+                images.extend(seg_imgs)
+                if p < num_frames:
+                    p += 1
+
+        # images 一组图片共（self.new_length - 1）*2 + 1张，前self.new_length - 1每次对应横纵两张光流图，最后一张对应rgb；共self.num_segments组
+        process_data = self.transform(images)
+        return process_data
 
 
 def main():
