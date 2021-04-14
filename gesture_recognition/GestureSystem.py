@@ -1,8 +1,8 @@
 import ctypes
+import heapq
 import os
 import shutil
 import time
-import heapq
 
 import torch.backends.cudnn as cudnn
 import torch.nn.parallel
@@ -12,12 +12,12 @@ from torch.nn.utils import clip_grad_norm
 from torch.utils.data.sampler import SequentialSampler
 from torch.utils.tensorboard import SummaryWriter
 
-import datasets_video
-from dataset import TSNDataSet
-from main import AverageMeter, accuracy
-from models import TSN
-from opts import parser
-from transforms import *
+from gesture_recognition.dataset import TSNDataSet
+from gesture_recognition import datasets_video
+from gesture_recognition.main import AverageMeter, accuracy
+from gesture_recognition.models import TSN
+from gesture_recognition.opts import parser
+from gesture_recognition.transforms import *
 
 
 class GestureSystem:
@@ -622,6 +622,11 @@ class DealVideo:
         print("calculate flow use time: {}s".format(time.time() - start_time))
 
         return flow[:, :, 0], flow[:, :, 1]
+
+
+class GestureLocationSystem:
+    def __init__(self):
+        pass
 
 
 def main():
