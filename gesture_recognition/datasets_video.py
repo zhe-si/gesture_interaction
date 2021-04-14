@@ -2,7 +2,8 @@
 
 import os
 
-ROOT_DATASET = 'F:/My_Resources/datasets/GestureRecognition_fwwb/'
+# ROOT_DATASET = 'F:/My_Resources/datasets/GestureRecognition_fwwb/'
+ROOT_DATASET = r'E:/sourse/python/MFF-GestureRecognition/MFF-pytorch/datasets/'
 # ROOT_DATASET = 'E:/sourse/python/MFF-GestureRecognition/MFF-pytorch/datasets/'
 
 

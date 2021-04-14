@@ -2,6 +2,7 @@ import ctypes
 import os
 import shutil
 import time
+import heapq
 
 import torch.backends.cudnn as cudnn
 import torch.nn.parallel
@@ -426,22 +427,28 @@ class GestureSystem:
         # switch to evaluate mode
         self.model.eval()
 
+        mff_input_time = time.time()
         self.deal_video.push_new_rgb(rgb_img)
         mff_input = self.deal_video.get_mff_input_from_buffer()
+        print("calculate mff input use time: {}".format(time.time() - mff_input_time))
+
         if mff_input is None:
             return None
         with torch.no_grad():
             input_var = Variable(mff_input)
 
         # compute output
+        forward_time = time.time()
         output = self.model(input_var)
+        print("forward use time: {}".format(time.time() - forward_time))
 
         # measure elapsed time
         print("classify: Time: {:.3f}".format(time.time() - end))
 
         # top = output.topk(1, dim=1, largest=True, sorted=True)
         # return (top.indices.item(), top.values.item())
-        return max(enumerate(output[0]), key=lambda x: x[1])
+        # return max(enumerate(output[0]), key=lambda x: x[1])
+        return heapq.nlargest(5, enumerate(output[0]), key=lambda x: x[1])
 
 
 class DealVideo:
@@ -468,8 +475,17 @@ class DealVideo:
         if self.modality == 'RGBDiff' or self.modality == 'RGBFlow':
             self.new_length += 1  # Diff needs one more image to calculate diff
 
+        # 加载计算光流dll
+        self.dll_path = "./lib/flow_computation.dll"
+        self.lib = ctypes.CDLL(self.dll_path, winmode=ctypes.RTLD_GLOBAL)
+        self.lib.calulateFlow_kkk.restype = ctypes.POINTER(ctypes.c_uint8)
+
+        # 加载计算DeepFlow计算器
+        self.inst = cv2.optflow.createOptFlow_DeepFlow()
+
         self.min_num = self.new_length + self.num_segments - 1
 
+        # 初始化图片缓冲区
         self.buffer_length = 24
         self.rgb_list = []
         self.gray_list = []
@@ -493,7 +509,7 @@ class DealVideo:
         self.rgb_list.append(rgb_img)
         self.gray_list.append(cv2.cvtColor(rgb_img, cv2.COLOR_RGB2GRAY))
         if len(self.rgb_list) > 1:
-            flow_u, flow_v = DealVideo.calculate_flow(self.gray_list[-2], self.gray_list[-1])
+            flow_u, flow_v = self.calculate_brox_flow_with_dll(self.gray_list[-2], self.gray_list[-1])
             self.flow_u_list.append(flow_u)
             self.flow_v_list.append(flow_v)
         self.update_buffer()
@@ -514,16 +530,20 @@ class DealVideo:
 
     def turn_imgs_to_mff_input(self, rgb_list):
         indices = DealVideo._get_val_indices(len(rgb_list), self.num_segments, self.new_length)
-        flow_u_list, flow_v_list = DealVideo.calculate_rgb_list_flow(rgb_list)
+        flow_u_list, flow_v_list = self.calculate_rgb_list_flow(rgb_list)
         return self._turn_imgs_to_mff_input(rgb_list, flow_u_list, flow_v_list, indices)
 
-    @staticmethod
-    def calculate_rgb_list_flow(rgb_list):
+    def calculate_rgb_list_flow(self, rgb_list, mode="brox"):
         gray_list = [cv2.cvtColor(img, cv2.COLOR_RGB2GRAY) for img in rgb_list]
         flow_u_list = []
         flow_v_list = []
         for i in range(len(gray_list) - 1):
-            flow_u, flow_v = DealVideo.calculate_flow(gray_list[i], gray_list[i + 1])
+            if mode == "brox":
+                flow_u, flow_v = self.calculate_brox_flow_with_dll(gray_list[i], gray_list[i + 1])
+            elif mode == "deep_flow":
+                flow_u, flow_v = self.calculate_deep_flow(gray_list[i], gray_list[i + 1])
+            else:
+                raise Exception("calculate flow mode is not allowed")
             flow_u_list.append(flow_u)
             flow_v_list.append(flow_v)
         return flow_u_list, flow_v_list
@@ -564,17 +584,14 @@ class DealVideo:
         process_data = self.transform(images)
         return process_data
 
-    @staticmethod
-    def calculate_flow(frame1, frame2):
+    def calculate_brox_flow_with_dll(self, frame1, frame2):
         """调用c++ dll计算brox光流
 
         Args:
             frame1: 第一张图片（灰度图）
             frame2: 第二张图片（灰度图）
         """
-        dll_path = "./lib/flow_computation.dll"
-
-        lib = ctypes.CDLL(dll_path, winmode=ctypes.RTLD_GLOBAL)
+        start_time = time.time()
 
         # 转化np为uchar*
         frame_data1 = np.asarray(frame1, dtype=np.uint8)
@@ -582,10 +599,8 @@ class DealVideo:
         frame_data2 = np.asarray(frame2, dtype=np.uint8)
         frame_data2 = frame_data2.ctypes.data_as(ctypes.c_char_p)
 
-        lib.calulateFlow_kkk.restype = ctypes.POINTER(ctypes.c_uint8)
-
-        p = lib.calulateFlow_kkk(frame1.shape[0], frame1.shape[1], frame_data1,
-                                 frame2.shape[0], frame2.shape[1], frame_data2)
+        p = self.lib.calulateFlow_kkk(frame1.shape[0], frame1.shape[1], frame_data1,
+                                      frame2.shape[0], frame2.shape[1], frame_data2)
 
         # 转化uchar*为np
         ret = np.array(np.fromiter(p, dtype=np.uint8,
@@ -593,23 +608,50 @@ class DealVideo:
         ret_u = ret[:frame1.shape[0] * frame1.shape[1]].reshape(frame1.shape)
         ret_v = ret[frame1.shape[0] * frame1.shape[1]:].reshape(frame2.shape)
 
-        lib.release_kkk(p)
+        self.lib.release_kkk(p)
+
+        print("calculate flow use time: {}s".format(time.time() - start_time))
 
         return ret_u, ret_v
+
+    def calculate_deep_flow(self, frame1, frame2):
+        start_time = time.time()
+
+        flow = self.inst.calc(frame1, frame2, None)
+
+        print("calculate flow use time: {}s".format(time.time() - start_time))
+
+        return flow[:, :, 0], flow[:, :, 1]
 
 
 def main():
     gesture_sys = GestureSystem("resnet101")
     gesture_sys.load_model("./model/cc_MFF_jester_RGBFlow_resnet101_segment5_3f1c_best.pth.tar")
 
+    step = 1
+    labels = ["click", "turn", "zone", "catch", "swipe"]
+    labels_i = 0
     cap = cv2.VideoCapture(0)
     while True:
         success, frame = cap.read()
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         if success:
-            result = gesture_sys.classify(frame)
-            if result is not None:
-                print(gesture_sys.categories_map[result[0]])
+            # if step % 2 == 0:
+            if True:
+                result = gesture_sys.classify(frame_rgb)
+                if result is not None:
+                    # print(gesture_sys.categories_map[result[0]])
+                    for line in result:
+                        print(gesture_sys.categories_map[line[0]], end=", ")
+                    print()
+                    print()
+            else:
+                gesture_sys.deal_video.push_new_rgb(frame_rgb)
+            if step % 40 == 0:
+                print("*******######## {} ######*********".format(labels[labels_i]))
+                labels_i += 1
+                print()
+            step += 1
             cv2.imshow("show", frame)
             cv2.waitKey(5)
         else:
