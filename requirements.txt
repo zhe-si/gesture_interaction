@@ -12,3 +12,5 @@ pyautogui~=0.9.48
 pyqt5~=5.15.4
 pynput~=1.7.3
 scikit-learn~=0.23.2
+pykeyboard~=0.1.2
+matplotlib~=3.4.1

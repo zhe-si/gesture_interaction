@@ -625,16 +625,6 @@ class DealVideo:
         return flow[:, :, 0], flow[:, :, 1]
 
 
-class GestureLocationSystem:
-    """
-    手势定位系统
-    通过opencv对手部进行定位
-    1. 手部关键点提取
-    """
-    def __init__(self):
-        pass
-
-
 def main():
     gesture_sys = GestureSystem("resnet101")
     gesture_sys.load_model("./model/cc_MFF_jester_RGBFlow_resnet101_segment5_3f1c_best.pth.tar")
