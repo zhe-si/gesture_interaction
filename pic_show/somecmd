@@ -1,0 +1,3 @@
+C:\Program Files\Microsoft Office\root\Office16\POWERPNT.EXE
+D:\myapp\Fastpic\fastpic.exe
+subprocess.Popen( ['C:\\Windows\\notepad.exe','C:\\hello.txt'])
