@@ -1,2 +1,2 @@
-from receive import Receiver
-from send import Sender
+from communication.receive import Receiver
+from communication.send import Sender

@@ -12,6 +12,7 @@ from torch.nn.utils import clip_grad_norm
 from torch.utils.data.sampler import SequentialSampler
 from torch.utils.tensorboard import SummaryWriter
 
+from communication import Sender, Receiver
 from gesture_recognition.dataset import TSNDataSet
 from gesture_recognition import datasets_video
 from gesture_recognition.main import AverageMeter, accuracy
@@ -625,6 +626,11 @@ class DealVideo:
 
 
 class GestureLocationSystem:
+    """
+    手势定位系统
+    通过opencv对手部进行定位
+    1. 手部关键点提取
+    """
     def __init__(self):
         pass
 
@@ -633,9 +639,8 @@ def main():
     gesture_sys = GestureSystem("resnet101")
     gesture_sys.load_model("./model/cc_MFF_jester_RGBFlow_resnet101_segment5_3f1c_best.pth.tar")
 
-    step = 1
-    labels = ["click", "turn", "zone", "catch", "swipe"]
-    labels_i = 0
+    sender = Sender(Receiver.HOST, Receiver.PORT)
+
     cap = cv2.VideoCapture(0)
     while True:
         success, frame = cap.read()
@@ -646,17 +651,16 @@ def main():
                 result = gesture_sys.classify(frame_rgb)
                 if result is not None:
                     # print(gesture_sys.categories_map[result[0]])
+                    package = {"gesture": [], "probability": [], "vector": (1, 1)}
                     for line in result:
                         print(gesture_sys.categories_map[line[0]], end=", ")
+                        package["gesture"].append(gesture_sys.categories_map[line[0]])
+                        package["probability"].append(line[1])
+                    sender.send(package)
                     print()
                     print()
             else:
                 gesture_sys.deal_video.push_new_rgb(frame_rgb)
-            if step % 40 == 0:
-                print("*******######## {} ######*********".format(labels[labels_i]))
-                labels_i += 1
-                print()
-            step += 1
             cv2.imshow("show", frame)
             cv2.waitKey(5)
         else:
