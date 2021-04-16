@@ -4,6 +4,7 @@ import os
 import shutil
 import time
 
+import cv2
 import torch.backends.cudnn as cudnn
 import torch.nn.parallel
 import torch.optim
@@ -133,6 +134,8 @@ class GestureSystem:
         self.categories_map = {}
         for label_id, label in enumerate(self.categories):
             self.categories_map[label_id] = label
+
+        self.video_sta_shape = (176, 100)
 
         self.args.store_name = '_'.join(['MFF', self.args.dataset, self.args.modality, self.args.arch,
                                          'segment%d' % self.args.num_segments, '%df1c' % self.args.num_motion])
@@ -428,6 +431,9 @@ class GestureSystem:
         # switch to evaluate mode
         self.model.eval()
 
+        if rgb_img.shape[1::-1] != self.video_sta_shape:
+            rgb_img = cv2.resize(rgb_img, self.video_sta_shape)
+
         mff_input_time = time.time()
         self.deal_video.push_new_rgb(rgb_img)
         mff_input = self.deal_video.get_mff_input_from_buffer()
@@ -453,6 +459,15 @@ class GestureSystem:
 
 
 class DealVideo:
+
+    # 加载计算DeepFlow计算器
+    inst = cv2.optflow.createOptFlow_DeepFlow()
+
+    # 加载计算光流dll
+    dll_path = "./lib/flow_computation.dll"
+    lib = ctypes.CDLL(dll_path, winmode=ctypes.RTLD_GLOBAL)
+    lib.calulateFlow_kkk.restype = ctypes.POINTER(ctypes.c_uint8)
+
     def __init__(self, new_length, modality, normalize, model_name, scale_size, crop_size,
                  num_segments, transform=None):
         self.new_length = new_length
@@ -475,14 +490,6 @@ class DealVideo:
 
         if self.modality == 'RGBDiff' or self.modality == 'RGBFlow':
             self.new_length += 1  # Diff needs one more image to calculate diff
-
-        # 加载计算光流dll
-        self.dll_path = "./lib/flow_computation.dll"
-        self.lib = ctypes.CDLL(self.dll_path, winmode=ctypes.RTLD_GLOBAL)
-        self.lib.calulateFlow_kkk.restype = ctypes.POINTER(ctypes.c_uint8)
-
-        # 加载计算DeepFlow计算器
-        self.inst = cv2.optflow.createOptFlow_DeepFlow()
 
         self.min_num = self.new_length + self.num_segments - 1
 
@@ -585,40 +592,42 @@ class DealVideo:
         process_data = self.transform(images)
         return process_data
 
-    def calculate_brox_flow_with_dll(self, frame1, frame2):
+    @classmethod
+    def calculate_brox_flow_with_dll(cls, pic_gray_1, pic_gray_2):
         """调用c++ dll计算brox光流
 
         Args:
-            frame1: 第一张图片（灰度图）
-            frame2: 第二张图片（灰度图）
+            pic_gray_1: 第一张图片（灰度图）
+            pic_gray_2: 第二张图片（灰度图）
         """
         start_time = time.time()
 
         # 转化np为uchar*
-        frame_data1 = np.asarray(frame1, dtype=np.uint8)
+        frame_data1 = np.asarray(pic_gray_1, dtype=np.uint8)
         frame_data1 = frame_data1.ctypes.data_as(ctypes.c_char_p)
-        frame_data2 = np.asarray(frame2, dtype=np.uint8)
+        frame_data2 = np.asarray(pic_gray_2, dtype=np.uint8)
         frame_data2 = frame_data2.ctypes.data_as(ctypes.c_char_p)
 
-        p = self.lib.calulateFlow_kkk(frame1.shape[0], frame1.shape[1], frame_data1,
-                                      frame2.shape[0], frame2.shape[1], frame_data2)
+        p = cls.lib.calulateFlow_kkk(pic_gray_1.shape[0], pic_gray_1.shape[1], frame_data1,
+                                     pic_gray_2.shape[0], pic_gray_2.shape[1], frame_data2)
 
         # 转化uchar*为np
-        ret = np.array(np.fromiter(p, dtype=np.uint8,
-                                   count=frame1.shape[0] * frame1.shape[1] + frame2.shape[0] * frame2.shape[1]))
-        ret_u = ret[:frame1.shape[0] * frame1.shape[1]].reshape(frame1.shape)
-        ret_v = ret[frame1.shape[0] * frame1.shape[1]:].reshape(frame2.shape)
+        ret = np.array(np.fromiter(p, dtype=np.uint8, count=pic_gray_1.shape[0] * pic_gray_1.shape[1]
+                                                            + pic_gray_2.shape[0] * pic_gray_2.shape[1]))
+        ret_u = ret[:pic_gray_1.shape[0] * pic_gray_1.shape[1]].reshape(pic_gray_1.shape)
+        ret_v = ret[pic_gray_1.shape[0] * pic_gray_1.shape[1]:].reshape(pic_gray_2.shape)
 
-        self.lib.release_kkk(p)
+        cls.lib.release_kkk(p)
 
         print("calculate flow use time: {}s".format(time.time() - start_time))
 
         return ret_u, ret_v
 
-    def calculate_deep_flow(self, frame1, frame2):
+    @classmethod
+    def calculate_deep_flow(cls, frame1, frame2):
         start_time = time.time()
 
-        flow = self.inst.calc(frame1, frame2, None)
+        flow = cls.inst.calc(frame1, frame2, None)
 
         print("calculate flow use time: {}s".format(time.time() - start_time))
 
@@ -626,6 +635,8 @@ class DealVideo:
 
 
 def main():
+    video_sta_shape = (176, 100)
+
     gesture_sys = GestureSystem("resnet101")
     gesture_sys.load_model("./model/cc_MFF_jester_RGBFlow_resnet101_segment5_3f1c_best.pth.tar")
 
@@ -635,6 +646,7 @@ def main():
     while True:
         success, frame = cap.read()
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_rgb = cv2.resize(frame_rgb, video_sta_shape)
         if success:
             # if step % 2 == 0:
             if True:
@@ -656,6 +668,18 @@ def main():
         else:
             print("video read error")
             return
+
+
+def test(gesture_sys):
+    pic_1 = cv2.imread("E:/test/1.jpg", cv2.IMREAD_GRAYSCALE)
+    pic_2 = cv2.imread("E:/test/2.jpg", cv2.IMREAD_GRAYSCALE)
+    pic_3 = cv2.imread("E:/test/3.jpg", cv2.IMREAD_GRAYSCALE)
+    flow_u, flow_v = gesture_sys.deal_video.calculate_brox_flow_with_dll(pic_3, pic_2)
+    cv2.imwrite("E:/test/f_u_n/1.jpg", flow_u)
+    cv2.imwrite("E:/test/f_v_n/1.jpg", flow_v)
+    flow_u, flow_v = gesture_sys.deal_video.calculate_brox_flow_with_dll(pic_2, pic_1)
+    cv2.imwrite("E:/test/f_u_n/2.jpg", flow_u)
+    cv2.imwrite("E:/test/f_v_n/2.jpg", flow_v)
 
 
 if __name__ == '__main__':
