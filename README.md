@@ -57,13 +57,13 @@ Followings are some examples for training under different scenarios:
 * Train 4-segment network with 3 flow, 1 color frames (4-MFFs-3f1c architecture)
 （重新训练）
 ```bash
-python main.py jester RGBFlow --arch BNInception --num_segments 4 --consensus_type MLP --num_motion 3  --batch-size 32
+python main_old.py jester RGBFlow --arch BNInception --num_segments 4 --consensus_type MLP --num_motion 3  --batch-size 32
 ```
 
 * Train resuming the last checkpoint (4-MFFs-3f1c architecture)
 （从检查点【之前训练结果】恢复训练）
 ```bash
-python main.py jester RGBFlow --resume=<path-to-last-checkpoint> --arch BNInception --consensus_type MLP --num_segments 4 --num_motion 3  --batch-size 32
+python main_old.py jester RGBFlow --resume=<path-to-last-checkpoint> --arch BNInception --consensus_type MLP --num_segments 4 --num_motion 3  --batch-size 32
 ```
 
 * The command to test trained models (4-MFFs-3f1c architecture). Pretrained models are under [pretrained_models](pretrained_models).
