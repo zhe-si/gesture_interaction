@@ -14,3 +14,6 @@ pynput~=1.7.3
 scikit-learn~=0.23.2
 pykeyboard~=0.1.2
 matplotlib~=3.4.1
+scipy~=1.6.0
+QDarkStyle~=3.0.2
+pywin32

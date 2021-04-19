@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 
-# from gesture_recognition import gesture_system
 from gesture_recognition import gesture_system
 
 
@@ -427,6 +426,18 @@ class GestureLocationSystem:
             hands_contour_center.append((contours[tar_id], (center_x, center_y)))
         print("calculate hand point use time: {}".format(time.time() - s))
         return hands_contour_center
+
+    def get_hands_data(self, index=0):
+        """得到手部对应的最新坐标（返回：name: point）"""
+        hands_latest_data = {}
+        for hand_name, des_list in self.hands_map.items():
+            if len(des_list) > index:
+                hands_latest_data[hand_name] = des_list[-1 - index]
+        return hands_latest_data
+
+    def get_hand_data_list(self, hand_name):
+        """根据手的名字返回手的信息，若该名字对应的手不存在，返回None"""
+        return self.hands_map.get(hand_name, None)
 
     def get_hands_num(self):
         return len(self.hands_map.keys())
