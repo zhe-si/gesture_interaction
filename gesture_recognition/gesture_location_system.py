@@ -408,10 +408,15 @@ class GestureLocationSystem:
         self.buffer_size = 15
         # 保存所有可能为手部的轮廓和中心点的信息
         self.hands_data_list = []
-        # 保存跟踪为手部的轮廓和中心点的信息(name -> des, unsure_num) (des为(contour, center))
+        # 保存跟踪为手部的轮廓和中心点的信息(name -> des, unsure_num) (des为list(contour, center))
         self.hands_map = {}
         # 暂未识别的手的信息
         self.unknown_hands_data = []
+
+        # 两手距离历史记录
+        self.latest_two_hands_dis_his = []
+        # 单手面积历史记录
+        self.latest_one_hand_area_his = []
 
         self.tracker = None
 
@@ -431,27 +436,72 @@ class GestureLocationSystem:
         """得到手部对应的最新坐标（返回：name: point）"""
         hands_latest_data = {}
         for hand_name, des_list in self.hands_map.items():
+            des_list = des_list[0]
             if len(des_list) > index:
                 hands_latest_data[hand_name] = des_list[-1 - index]
         return hands_latest_data
 
     def get_hand_data_list(self, hand_name):
         """根据手的名字返回手的信息，若该名字对应的手不存在，返回None"""
-        return self.hands_map.get(hand_name, None)
+        data = self.hands_map.get(hand_name, None)
+        if data is None:
+            return None
+        return data[0]
 
     def get_hands_num(self):
         return len(self.hands_map.keys())
 
-    def get_hands_move_vector(self):
-        """在只有一个手的情况下返回其移动向量"""
-        hands_name = list(self.hands_map.keys())
-        if len(hands_name) != 1:
+    def get_two_hands_distance(self, hands_name=None):
+        """在指定了两个手或场上只有两个手时返回二者距离"""
+        if hands_name is None:
+            all_hands_name = list(self.hands_map.keys())
+            hands_name = all_hands_name
+        else:
+            for hand_name in hands_name:
+                if hand_name not in self.hands_map.keys():
+                    return None
+        if len(hands_name) != 2:
             return None
-        hand_name = hands_name[0]
+        hand1_data = self.hands_map[hands_name[0]][0]
+        hand2_data = self.hands_map[hands_name[1]][0]
+        if len(hand1_data) < 1 or len(hand2_data) < 1:
+            return None
+        return hands_name, self._get_distance(hand1_data[-1][1], hand2_data[-1][1])
+
+    def get_one_hand_move_vector(self, hand_name=None):
+        """在只有一个手的情况下返回其移动向量"""
+        if hand_name is None:
+            hands_name = list(self.hands_map.keys())
+            if len(hands_name) != 1:
+                return None
+            hand_name = hands_name[0]
+        else:
+            if hand_name not in self.hands_map:
+                return None
         hand_data = self.hands_map[hand_name][0]
         if len(hand_data) < 2:
             return None
-        return self.get_vector(hand_data[-2][1], hand_data[-1][1])
+        return hand_name, self.get_vector(hand_data[-2][1], hand_data[-1][1])
+
+    def get_one_hand_area(self, hand_name=None):
+        if hand_name is None:
+            hands_name = list(self.hands_map.keys())
+            if len(hands_name) != 1:
+                return None
+            hand_name = hands_name[0]
+        else:
+            if hand_name not in self.hands_map:
+                return None
+        hand_data = self.hands_map[hand_name][0]
+        if len(hand_data) < 1:
+            return None
+        return hand_name, cv2.contourArea(hand_data[-1][0])
+
+    def get_one_hand_area_list(self):
+        return [data[1] for data in self.latest_one_hand_area_his]
+
+    def get_two_hands_dis_list(self):
+        return [data[1] for data in self.latest_two_hands_dis_his]
 
     @staticmethod
     def get_vector(point1, point2):
@@ -577,9 +627,45 @@ class GestureLocationSystem:
     def _get_new_hand_name() -> str:
         return str(time.time())
 
+    def _update_one_hand_area(self):
+        if len(self.latest_one_hand_area_his) == 0:
+            hand_area_data = self.get_one_hand_area()
+            if hand_area_data is not None:
+                self.latest_one_hand_area_his.append(hand_area_data)
+        else:
+            hand_area_data = self.get_one_hand_area(self.latest_one_hand_area_his[-1][0])
+            if hand_area_data is not None:
+                self.latest_one_hand_area_his.append(hand_area_data)
+                if len(self.latest_one_hand_area_his) > self.buffer_size:
+                    self.latest_one_hand_area_his.pop(0)
+            else:
+                self.latest_one_hand_area_his.clear()
+                hand_area_data = self.get_one_hand_area()
+                if hand_area_data is not None:
+                    self.latest_one_hand_area_his.append(hand_area_data)
+
+    def _update_two_hands_dis(self):
+        if len(self.latest_two_hands_dis_his) == 0:
+            hands_dis_data = self.get_two_hands_distance()
+            if hands_dis_data is not None:
+                self.latest_two_hands_dis_his.append(hands_dis_data)
+        else:
+            hands_dis_data = self.get_two_hands_distance(self.latest_two_hands_dis_his[-1][0])
+            if hands_dis_data is not None:
+                self.latest_two_hands_dis_his.append(hands_dis_data)
+                if len(self.latest_two_hands_dis_his) > self.buffer_size:
+                    self.latest_two_hands_dis_his.pop(0)
+            else:
+                self.latest_two_hands_dis_his.clear()
+                hands_dis_data = self.get_two_hands_distance()
+                if hands_dis_data is not None:
+                    self.latest_two_hands_dis_his.append(hands_dis_data)
+
     def push_hand_data(self, hands_data):
         self.hands_data_list.append(hands_data)
         self._update_now_hands()
+        self._update_one_hand_area()
+        self._update_two_hands_dis()
 
 
 def main_hand():
@@ -727,7 +813,7 @@ def show_hand_area(flow_u_1, flow_v_1, pic_bgr_2):
 
 
 if __name__ == '__main__':
-    # main_hand()
+    main_hand()
     # main_body()
-    main_location()
+    # main_location()
     # main_tracker()

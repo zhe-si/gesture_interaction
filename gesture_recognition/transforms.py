@@ -26,7 +26,7 @@ class GroupRandomCrop(object):
         y1 = random.randint(0, h - th)
 
         for img in img_group:
-            assert(img.size[0] == w and img.size[1] == h)
+            assert (img.size[0] == w and img.size[1] == h)
             if w == tw and h == th:
                 out_images.append(img)
             else:
@@ -46,6 +46,7 @@ class GroupCenterCrop(object):
 class GroupRandomHorizontalFlip(object):
     """Randomly horizontally flips the given PIL.Image with a probability of 0.5
     """
+
     def __init__(self, is_flow=False):
         self.is_flow = is_flow
 
@@ -67,8 +68,8 @@ class GroupNormalize(object):
         self.std = std
 
     def __call__(self, tensor):
-        rep_mean = self.mean * (tensor.size()[0]//len(self.mean))
-        rep_std = self.std * (tensor.size()[0]//len(self.std))
+        rep_mean = self.mean * (tensor.size()[0] // len(self.mean))
+        rep_std = self.std * (tensor.size()[0] // len(self.std))
 
         # TODO: make efficient
         for t, m, s in zip(tensor, rep_mean, rep_std):
@@ -116,21 +117,22 @@ class GroupOverSample(object):
             normal_group = list()
             flip_group = list()
             for i, img in enumerate(img_group):
-                #print(img.size)
+                # print(img.size)
                 crop = img.crop((o_w, o_h, o_w + crop_w, o_h + crop_h))
-                #print([o_w, o_h, o_w + crop_w, o_h + crop_h])
+                # print([o_w, o_h, o_w + crop_w, o_h + crop_h])
                 normal_group.append(crop)
-                #flip_crop = crop.copy().transpose(Image.FLIP_LEFT_RIGHT)
-                #flip_group.append(flip_crop)
+                # flip_crop = crop.copy().transpose(Image.FLIP_LEFT_RIGHT)
+                # flip_group.append(flip_crop)
 
-                #if img.mode == 'L' and i % 2 == 0:
-                    #flip_group.append(ImageOps.invert(flip_crop))
-                #else:
-                    #flip_group.append(flip_crop)
+                # if img.mode == 'L' and i % 2 == 0:
+                # flip_group.append(ImageOps.invert(flip_crop))
+                # else:
+                # flip_group.append(flip_crop)
 
             oversample_group.extend(normal_group)
-            #oversample_group.extend(flip_group)
+            # oversample_group.extend(flip_group)
         return oversample_group
+
 
 class GroupSpatialElasticDisplacement(object):
 
@@ -138,7 +140,6 @@ class GroupSpatialElasticDisplacement(object):
         self.displacement = 20
         self.displacement_kernel = 25
         self.displacement_magnification = 0.60
-
 
     def __call__(self, img_group):
         v = random.random()
@@ -150,17 +151,19 @@ class GroupSpatialElasticDisplacement(object):
             displacement_map *= self.displacement_magnification * self.displacement_kernel
             displacement_map = np.floor(displacement_map).astype('int32')
 
-            displacement_map_rows = displacement_map[..., 0] + np.tile(np.arange(image_h), (image_w, 1)).T.astype('int32')
+            displacement_map_rows = displacement_map[..., 0] + np.tile(np.arange(image_h), (image_w, 1)).T.astype(
+                'int32')
             displacement_map_rows = np.clip(displacement_map_rows, 0, image_h - 1)
 
             displacement_map_cols = displacement_map[..., 1] + np.tile(np.arange(image_w), (image_h, 1)).astype('int32')
             displacement_map_cols = np.clip(displacement_map_cols, 0, image_w - 1)
-            ret_img_group = [Image.fromarray(np.asarray(img)[(displacement_map_rows.flatten(), displacement_map_cols.flatten())].reshape(np.asarray(img).shape)) for img in img_group]
+            ret_img_group = [Image.fromarray(
+                np.asarray(img)[(displacement_map_rows.flatten(), displacement_map_cols.flatten())].reshape(
+                    np.asarray(img).shape)) for img in img_group]
             return ret_img_group
 
         else:
             return img_group
-
 
 
 class GroupMultiScaleResize(object):
@@ -170,11 +173,11 @@ class GroupMultiScaleResize(object):
 
     def __call__(self, img_group):
         im_size = img_group[0].size
-        self.resize_const = random.uniform(1.0 - self.scale, 1.0 + self.scale) # Aplly random resize constant 
-        resize_img_group = [img.resize((int(im_size[0]*self.resize_const), int(im_size[1]*self.resize_const))) for img in img_group]
+        self.resize_const = random.uniform(1.0 - self.scale, 1.0 + self.scale)  # Aplly random resize constant
+        resize_img_group = [img.resize((int(im_size[0] * self.resize_const), int(im_size[1] * self.resize_const))) for
+                            img in img_group]
 
         return resize_img_group
-
 
 
 class GroupMultiScaleRotate(object):
@@ -185,11 +188,10 @@ class GroupMultiScaleRotate(object):
 
     def __call__(self, img_group):
         im_size = img_group[0].size
-        self.rotate_angle = random.randint(-self.degree, self.degree) # Aplly random rotation angle
+        self.rotate_angle = random.randint(-self.degree, self.degree)  # Aplly random rotation angle
         ret_img_group = [img.rotate(self.rotate_angle, resample=self.interpolation) for img in img_group]
 
         return ret_img_group
-
 
 
 class GroupMultiScaleCrop(object):
@@ -205,7 +207,7 @@ class GroupMultiScaleCrop(object):
     def __call__(self, img_group):
 
         im_size = img_group[0].size
-        #self.scales = [1, random.uniform(0.85, 1.0)]
+        # self.scales = [1, random.uniform(0.85, 1.0)]
 
         crop_w, crop_h, offset_w, offset_h = self._sample_crop_size(im_size)
         crop_img_group = [img.crop((offset_w, offset_h, offset_w + crop_w, offset_h + crop_h)) for img in img_group]
@@ -275,6 +277,7 @@ class GroupRandomSizedCrop(object):
     size: size of the smaller edge
     interpolation: Default: PIL.Image.BILINEAR
     """
+
     def __init__(self, size, interpolation=Image.BILINEAR):
         self.size = size
         self.interpolation = interpolation
@@ -305,7 +308,7 @@ class GroupRandomSizedCrop(object):
             out_group = list()
             for img in img_group:
                 img = img.crop((x1, y1, x1 + w, y1 + h))
-                assert(img.size == (w, h))
+                assert (img.size == (w, h))
                 out_group.append(img.resize((self.size, self.size), self.interpolation))
             return out_group
         else:
@@ -326,7 +329,7 @@ class Stack(object):
             stacked_array = np.array([])
             for x in img_group:
                 if x.mode == 'L':
-                    if stacked_array.size ==0:
+                    if stacked_array.size == 0:
                         stacked_array = np.expand_dims(x, 2)
                     else:
                         stacked_array = np.concatenate([stacked_array, np.expand_dims(x, 2)], axis=2)
@@ -336,7 +339,7 @@ class Stack(object):
                     else:
                         stacked_array = np.concatenate([stacked_array, np.array(x)], axis=2)
             return stacked_array
-          
+
         else:
             if img_group[0].mode == 'L':
                 return np.concatenate([np.expand_dims(x, 2) for x in img_group], axis=2)
@@ -351,6 +354,7 @@ class Stack(object):
 class ToTorchFormatTensor(object):
     """ Converts a PIL.Image (RGB) or numpy.ndarray (H x W x C) in the range [0, 255]
     to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0] """
+
     def __init__(self, div=True):
         self.div = div
 
