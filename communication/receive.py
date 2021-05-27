@@ -14,8 +14,9 @@ class Receiver:
     注意：读取的字典数据包含时间戳数据："send_time"
     """
 
-    HOST = "localhost"
-    PORT = 10889
+    # 允许外部连接的ip与对外开放的端口
+    BIND_HOST = "0.0.0.0"  # 允许任意外部ip的主机连接
+    BIND_PORT = 10889
 
     def __init__(self, wait_receive_last=False, receive_list_length=10, no_repeat=True):
         """
@@ -31,7 +32,7 @@ class Receiver:
         self.receive_list = []
         self.receive_list_lock = threading.Lock()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind((Receiver.HOST, Receiver.PORT))
+        self.socket.bind((Receiver.BIND_HOST, Receiver.BIND_PORT))
         self.socket.listen(1)
         self.sender_socket, self.sender_addr = self.socket.accept()
         print("sender connect successful")

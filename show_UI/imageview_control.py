@@ -19,13 +19,14 @@ def normal(message):
     if message['gesture'] == 'anticlockwise':
         pyautogui.hotkey('down')
         print("anticlockwise")
-    if (message['gesture'] == 'swap'):
+    if message['gesture'] == 'swap':
         if message['vector'][0] > 0:
             pyautogui.press('left')
             print('left')
         if message['vector'][0] < 0:
             pyautogui.press('right')
             print('right')
+
 
 def run(message, mode):
     if mode == 'silent':
@@ -36,4 +37,4 @@ def run(message, mode):
 
 
 if __name__ == '__main__':
-    run()
+    pass

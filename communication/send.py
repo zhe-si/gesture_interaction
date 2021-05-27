@@ -47,7 +47,7 @@ class Sender:
 
 
 if __name__ == '__main__':
-    sender = Sender("localhost", Receiver.PORT)
+    sender = Sender("localhost", Receiver.BIND_PORT)
     k = {1: 1, 2: "2"}
     while True:
         sender.send(k)
